@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { setupAudioAnalyzer, type AudioData } from './audio';
 
-const NUM_BARS = 128; // More bars for better resolution
+const NUM_BARS = 128;
 const BAR_WIDTH = 0.1;
 const CIRCLE_RADIUS = 5;
 
@@ -36,7 +36,6 @@ export async function initScene(container: HTMLElement) {
   container.innerHTML = '';
   container.appendChild(renderer.domElement);
 
-
   // Create visualization bars
   const bars: THREE.Mesh[] = [];
   const barGeometry = new THREE.BoxGeometry(BAR_WIDTH, 1, BAR_WIDTH);
@@ -60,14 +59,20 @@ export async function initScene(container: HTMLElement) {
     scene.add(bar);
   }
 
-  // Add center piece
-  const centerGeometry = new THREE.IcosahedronGeometry(1, 1);
+  // Enhanced center piece with more complex geometry
+  const centerGeometry = new THREE.IcosahedronGeometry(1, 2); // Increased detail level
   const centerMaterial = new THREE.MeshPhongMaterial({
     color: 0xffffff,
     wireframe: true,
-    emissive: 0x222222
+    emissive: 0x222222,
+    flatShading: true,
+    transparent: true,
+    opacity: 0.8
   });
   const centerPiece = new THREE.Mesh(centerGeometry, centerMaterial);
+
+  // Add vertex distortion to geometry
+  const originalPositions = centerGeometry.attributes.position.array.slice();
   scene.add(centerPiece);
 
   // Add lights
@@ -112,11 +117,47 @@ export async function initScene(container: HTMLElement) {
       }
     });
 
-    // Animate center piece
+    // Enhanced center piece animation
+    // Get average frequency for overall intensity
+    const avgFrequency = Array.from(audioData.frequencies)
+      .reduce((sum, val) => sum + val, 0) / audioData.frequencies.length;
+    const normalizedAvg = avgFrequency / 255;
+
+    // Update center piece vertices based on audio
+    const positions = centerGeometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+      const originalX = originalPositions[i];
+      const originalY = originalPositions[i + 1];
+      const originalZ = originalPositions[i + 2];
+
+      // Create dynamic distortion based on audio and time
+      const distortion = 0.3 * normalizedAvg;
+      const noise = Math.sin(time * 2 + i * 0.1) * distortion;
+
+      positions[i] = originalX * (1 + noise);
+      positions[i + 1] = originalY * (1 + noise);
+      positions[i + 2] = originalZ * (1 + noise);
+    }
+    centerGeometry.attributes.position.needsUpdate = true;
+
+    // Rotate and scale center piece based on audio
     centerPiece.rotation.x += 0.01 + audioData.volume * 0.05;
     centerPiece.rotation.y += 0.01 + audioData.volume * 0.05;
-    const scale = 1 + audioData.volume;
-    centerPiece.scale.set(scale, scale, scale);
+
+    // Pulsating scale based on volume
+    const baseScale = 1 + audioData.volume;
+    const pulseScale = baseScale + Math.sin(time * 4) * audioData.volume * 0.2;
+    centerPiece.scale.set(pulseScale, pulseScale, pulseScale);
+
+    // Update center piece material
+    if (centerPiece.material instanceof THREE.MeshPhongMaterial) {
+      const hue = (time * 0.1) % 1;
+      const saturation = 0.5 + audioData.volume * 0.5;
+      const lightness = 0.4 + audioData.volume * 0.3;
+      centerPiece.material.color.setHSL(hue, saturation, lightness);
+      centerPiece.material.emissive.setHSL(hue, saturation * 0.5, lightness * 0.3);
+      centerPiece.material.opacity = 0.6 + audioData.volume * 0.4;
+    }
 
     // Animate lights
     pointLight1.position.x = Math.cos(time) * 10;

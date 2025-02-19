@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Square } from "lucide-react";
+import { Mic, Square, Play, Pause } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { VoiceprintPreview } from "./VoiceprintPreview";
 import { uploadUserRecording } from "@/services/storage/userRecordings.storage";
 import { createUserRecording } from "@/services/db/userRecordings.service";
 
@@ -12,12 +11,13 @@ interface VoicePrintButtonProps {
 
 let mediaRecorder: MediaRecorder | null = null;
 let audioChunks: Blob[] = [];
+let audioPlayer: HTMLAudioElement | null = null;
 
 export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
   const [nftId, setNftId] = useState<string>("");
   const { toast } = useToast();
   const [docId, setDocId] = useState<string>("");
@@ -36,11 +36,20 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
         setRecordedAudio(audioBlob);
-        debugger;
+
         const docId = await createUserRecording();
         setDocId(docId);
         const audioUrl = await uploadUserRecording(audioBlob, `${docId}.mp3`);
         setAudioUrl(audioUrl);
+
+        // Create audio player
+        if (audioPlayer) {
+          audioPlayer.pause();
+          audioPlayer = null;
+        }
+        audioPlayer = new Audio(URL.createObjectURL(audioBlob));
+        audioPlayer.onended = () => setIsPlaying(false);
+
         await mockMintNFT(audioBlob, docId);
       };
 
@@ -77,6 +86,28 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
     }
   };
 
+  const togglePlayback = async () => {
+    if (!audioPlayer) return;
+
+    if (isPlaying) {
+      audioPlayer.pause();
+      setIsPlaying(false);
+    } else {
+      try {
+        await audioPlayer.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.error("Playback error:", error);
+        toast({
+          variant: "destructive",
+          title: "Playback Error",
+          description: "Failed to play audio",
+          duration: 4000,
+        });
+      }
+    }
+  };
+
   const mockMintNFT = async (audioBlob: Blob, docId: string) => {
     try {
       setIsMinting(true);
@@ -102,8 +133,6 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         duration: 4000,
       });
 
-      // Show preview after successful minting
-      setShowPreview(true);
       setIsMinting(false);
     } catch (error) {
       console.error("Error creating Voiceprint NFT:", error);
@@ -126,11 +155,11 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   };
 
   return (
-    <>
+    <div className="fixed bottom-4 right-4 flex gap-2">
       <Button
         onClick={handleClick}
         disabled={isMinting}
-        className="fixed bottom-4 right-4 gap-2"
+        className="gap-2"
         variant={isRecording ? "destructive" : "default"}
       >
         {isRecording ? (
@@ -146,12 +175,26 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         )}
       </Button>
 
-      <VoiceprintPreview
-        audioBlob={recordedAudio}
-        isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
-        nftId={nftId}
-      />
-    </>
+      {recordedAudio && !isRecording && (
+        <Button
+          onClick={togglePlayback}
+          variant="outline"
+          className="gap-2"
+          disabled={isMinting}
+        >
+          {isPlaying ? (
+            <>
+              <Pause className="h-4 w-4" />
+              Pause
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4" />
+              Play
+            </>
+          )}
+        </Button>
+      )}
+    </div>
   );
 }
