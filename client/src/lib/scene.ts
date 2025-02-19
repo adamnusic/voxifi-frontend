@@ -20,14 +20,28 @@ export async function initScene(container: HTMLElement) {
   );
   camera.position.z = 5;
 
-  // Renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  // Renderer with WebXR support
+  const renderer = new THREE.WebGLRenderer({ 
+    antialias: true,
+    alpha: true,
+    powerPreference: "high-performance"
+  });
+  renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.xr.enabled = true;
+
+  // Ensure container is empty before appending
+  container.innerHTML = '';
   container.appendChild(renderer.domElement);
-  
-  // Add VR button
-  document.body.appendChild(VRButton.createButton(renderer));
+
+  // Add VR button and ensure it's properly styled
+  const vrButton = VRButton.createButton(renderer);
+  vrButton.style.position = 'absolute';
+  vrButton.style.bottom = '20px';
+  vrButton.style.left = '50%';
+  vrButton.style.transform = 'translateX(-50%)';
+  vrButton.style.zIndex = '100';
+  document.body.appendChild(vrButton);
 
   // Create visualization object
   const visualization = createVisualization();
@@ -42,12 +56,18 @@ export async function initScene(container: HTMLElement) {
   directionalLight.position.set(5, 5, 5);
   scene.add(directionalLight);
 
+  // Start render loop
+  renderer.setAnimationLoop(() => {
+    renderer.render(scene, camera);
+  });
+
   // Handle resize
-  window.addEventListener('resize', () => {
+  const handleResize = () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  };
+  window.addEventListener('resize', handleResize);
 
   return { scene, camera, renderer, visualization };
 }
@@ -62,12 +82,12 @@ function createVisualization() {
       color: new THREE.Color().setHSL(i / NUM_BARS, 1, 0.5),
     });
     const bar = new THREE.Mesh(geometry, material);
-    
+
     const angle = (i / NUM_BARS) * Math.PI * 2;
     bar.position.x = Math.cos(angle) * RADIUS;
     bar.position.z = Math.sin(angle) * RADIUS;
     bar.rotation.y = -angle;
-    
+
     group.add(bar);
   }
 
@@ -76,14 +96,14 @@ function createVisualization() {
 
 export function updateVisualization(visualization: THREE.Object3D, audioData: AudioData) {
   const { frequencies, volume } = audioData;
-  
+
   // Update bar heights based on frequency data
   visualization.children.forEach((bar, i) => {
     if (bar instanceof THREE.Mesh) {
       const value = frequencies[Math.floor(i * frequencies.length / NUM_BARS)] / 255;
       bar.scale.y = 1 + value * 5;
       bar.position.y = bar.scale.y / 2;
-      
+
       // Update color based on intensity
       if (bar.material instanceof THREE.MeshPhongMaterial) {
         bar.material.color.setHSL(i / NUM_BARS, 1, 0.3 + value * 0.7);

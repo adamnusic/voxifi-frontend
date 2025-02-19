@@ -21,15 +21,27 @@ export default function Visualizer() {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    let analyzer: any = null;
+
     const init = async () => {
       try {
         setIsInitializing(true);
+        setError('');
+
+        // Check if browser supports WebXR
+        if (!navigator.xr) {
+          throw new Error('WebXR not supported in this browser. Please use a WebXR-compatible browser.');
+        }
 
         // Initialize Three.js scene first
         sceneRef.current = await initScene(containerRef.current);
 
         // Then setup audio analyzer
-        const analyzer = await setupAudioAnalyzer();
+        try {
+          analyzer = await setupAudioAnalyzer();
+        } catch (audioErr) {
+          throw new Error('Please allow microphone access to experience the audio visualization.');
+        }
 
         // Start animation loop once everything is ready
         const animate = () => {
