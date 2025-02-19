@@ -36,8 +36,6 @@ export async function initScene(container: HTMLElement) {
   container.innerHTML = '';
   container.appendChild(renderer.domElement);
 
-  // Add VR button
-  document.body.appendChild(VRButton.createButton(renderer));
 
   // Create visualization bars
   const bars: THREE.Mesh[] = [];
