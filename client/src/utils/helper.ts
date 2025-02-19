@@ -7,7 +7,11 @@ const testEndpoint = async () => {
       : import.meta.env.VITE_AGENT_SERVER_URL;
 
     const response = await axios.get(baseUrl, {
-      timeout: 5000
+      timeout: 5000,
+      headers: {
+        'Accept': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     });
     return response.status === 200;
   } catch (error) {
@@ -39,8 +43,13 @@ export const getTtsAudioUrl = async (text: string, audioUrl: string) => {
       {
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Access-Control-Allow-Origin': '*'
         },
         timeout: 30000, // 30 second timeout
+        validateStatus: function (status) {
+          return status >= 200 && status < 500; // Accept any status code to handle errors properly
+        }
       }
     );
 
@@ -56,6 +65,16 @@ export const getTtsAudioUrl = async (text: string, audioUrl: string) => {
       response: error.response?.data,
       status: error.response?.status,
     });
-    throw new Error(error.response?.data?.message || error.message);
+
+    // More specific error messages based on error type
+    if (error.code === 'ECONNABORTED') {
+      throw new Error('Request timed out. Please try again.');
+    } else if (error.code === 'ERR_NETWORK') {
+      throw new Error('Network error. Please check your connection and try again.');
+    } else if (error.response?.status === 403) {
+      throw new Error('Access denied. Please check your credentials.');
+    }
+
+    throw new Error(error.response?.data?.message || error.message || 'An unknown error occurred');
   }
 };
