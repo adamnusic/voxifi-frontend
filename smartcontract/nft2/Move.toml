@@ -1,0 +1,23 @@
+[package]
+name = "nft2"
+version = "1.0.0"
+authors = []
+
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git' 
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-token-objects'
+
+
+[addresses]
+admin = "0xf8cab699fcec334fe2a6746655246e6eba418ca8d532d63ab217cc8cc54eef51"
+VSEED = "0x1"
+wv1 = "0x2" 
+std = "0x1"
+aptos_token_objects ="0x4"
