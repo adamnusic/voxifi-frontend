@@ -121,39 +121,55 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
           description: "Building transaction..."
         });
 
-        // Create transaction
-        const transaction = await aptos.generateTransaction({
-          sender: account.accountAddress,
-          data: payload
-        });
+        try {
+          // Create transaction
+          console.log('Creating transaction with payload:', payload);
+          const transaction = await aptos.transaction.build({
+            sender: account.accountAddress,
+            payload: payload
+          });
 
-        // Sign transaction
-        const signedTx = await aptos.signTransaction({
-          signer: account,
-          transaction
-        });
+          console.log('Transaction built successfully:', transaction);
 
-        toast({
-          title: "NFT Minting",
-          description: "Submitting to blockchain..."
-        });
+          // Sign transaction
+          console.log('Signing transaction...');
+          const signedTx = await aptos.transaction.sign({
+            signer: account,
+            transaction
+          });
 
-        // Submit transaction
-        const submittedTx = await aptos.submitTransaction({
-          transaction: signedTx
-        });
+          console.log('Transaction signed successfully');
 
-        // Wait for transaction
-        const txnResult = await aptos.waitForTransaction({
-          transactionHash: submittedTx.hash
-        });
+          toast({
+            title: "NFT Minting",
+            description: "Submitting to blockchain..."
+          });
 
-        toast({
-          title: "Success!",
-          description: `NFT minted! Transaction: ${txnResult.hash.slice(0, 10)}...`
-        });
+          // Submit transaction
+          console.log('Submitting transaction...');
+          const submittedTx = await aptos.transaction.submit({
+            transaction: signedTx
+          });
 
-        console.log('NFT minted successfully!', txnResult);
+          console.log('Transaction submitted:', submittedTx);
+
+          // Wait for transaction
+          console.log('Waiting for transaction confirmation...');
+          const txnResult = await aptos.waitForTransaction({
+            transactionHash: submittedTx.hash
+          });
+
+          console.log('Transaction confirmed:', txnResult);
+
+          toast({
+            title: "Success!",
+            description: `NFT minted! Transaction: ${txnResult.hash.slice(0, 10)}...`
+          });
+        } catch (error) {
+          console.error('Aptos transaction error:', error);
+          throw error;
+        }
+
       } catch (txError) {
         console.error('Transaction failed:', txError);
         toast({
