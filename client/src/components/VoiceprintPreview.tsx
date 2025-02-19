@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Play, Pause } from "lucide-react";
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/hooks/use-toast";
 
 interface VoiceprintPreviewProps {
   audioBlob: Blob | null;
@@ -17,101 +17,76 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number>();
   const audioContextRef = useRef<AudioContext>();
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode>();
   const analyzerRef = useRef<AnalyserNode>();
   const { toast } = useToast();
 
-  const cleanup = () => {
-    try {
+  useEffect(() => {
+    if (!audioBlob || !isOpen) return;
+
+    // Create audio element and set source
+    const audio = new Audio();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    audio.src = audioUrl;
+    audioRef.current = audio;
+
+    // Handle audio end
+    audio.addEventListener('ended', () => {
+      setIsPlaying(false);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = undefined;
       }
+    });
 
+    return () => {
+      // Cleanup
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+        audioRef.current.src = '';
       }
-
-      if (sourceNodeRef.current) {
-        sourceNodeRef.current.disconnect();
-      }
-
-      if (analyzerRef.current) {
-        analyzerRef.current.disconnect();
-      }
-
+      URL.revokeObjectURL(audioUrl);
       if (audioContextRef.current?.state !== 'closed') {
         audioContextRef.current?.close();
       }
-
-      audioContextRef.current = undefined;
-      sourceNodeRef.current = undefined;
-      analyzerRef.current = undefined;
-    } catch (error) {
-      console.error('Cleanup error:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (!audioBlob || !isOpen || !canvasRef.current) return;
-
-    let audioUrl: string | undefined;
-
-    const setupAudio = async () => {
-      try {
-        audioUrl = URL.createObjectURL(audioBlob);
-
-        // Create and setup audio element
-        const audio = new Audio();
-        audio.src = audioUrl;
-        audioRef.current = audio;
-
-        // Create audio context and nodes
-        const audioContext = new AudioContext();
-        audioContextRef.current = audioContext;
-
-        const analyzer = audioContext.createAnalyser();
-        analyzer.fftSize = 2048;
-        analyzerRef.current = analyzer;
-
-        // Create source node and connect it
-        const source = audioContext.createMediaElementSource(audio);
-        sourceNodeRef.current = source;
-
-        // Connect nodes: source -> analyzer -> destination
-        source.connect(analyzer);
-        analyzer.connect(audioContext.destination);
-
-        // Setup audio event handlers
-        audio.onended = () => {
-          setIsPlaying(false);
-          if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-          }
-        };
-
-        console.log('Audio setup complete');
-      } catch (error) {
-        console.error('Audio setup error:', error);
-        toast({
-          variant: "destructive",
-          title: "Setup Error",
-          description: "Failed to setup audio preview",
-        });
-        cleanup();
-      }
-    };
-
-    setupAudio();
-
-    return () => {
-      cleanup();
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, [audioBlob, isOpen]);
+
+  const setupAudioContext = async () => {
+    if (!audioRef.current) return;
+
+    try {
+      // Create audio context if it doesn't exist
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      // Resume context if suspended
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      // Create analyzer if it doesn't exist
+      if (!analyzerRef.current) {
+        const analyzer = audioContextRef.current.createAnalyser();
+        analyzer.fftSize = 2048;
+        analyzerRef.current = analyzer;
+
+        // Connect audio element to analyzer and destination
+        const source = audioContextRef.current.createMediaElementSource(audioRef.current);
+        source.connect(analyzer);
+        analyzer.connect(audioContextRef.current.destination);
+      }
+    } catch (error) {
+      console.error('Audio setup error:', error);
+      toast({
+        variant: "destructive",
+        title: "Audio Error",
+        description: "Failed to setup audio playback",
+      });
+    }
+  };
 
   const drawVisualization = () => {
     if (!canvasRef.current || !analyzerRef.current) return;
@@ -120,69 +95,41 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    try {
-      const frequencyData = new Uint8Array(analyzerRef.current.frequencyBinCount);
-      const timeData = new Uint8Array(analyzerRef.current.frequencyBinCount);
+    // Get frequency data
+    const frequencyData = new Uint8Array(analyzerRef.current.frequencyBinCount);
+    analyzerRef.current.getByteFrequencyData(frequencyData);
 
-      analyzerRef.current.getByteFrequencyData(frequencyData);
-      analyzerRef.current.getByteTimeDomainData(timeData);
+    // Clear canvas
+    ctx.fillStyle = 'rgb(23, 23, 23)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Clear canvas
-      ctx.fillStyle = 'rgb(23, 23, 23)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw frequency bars
+    const barWidth = canvas.width / frequencyData.length;
+    const heightScale = canvas.height / 255;
 
-      // Draw frequency bars
-      const barWidth = canvas.width / frequencyData.length;
-      const heightScale = canvas.height / 255;
+    ctx.fillStyle = 'rgb(147, 51, 234)'; // Purple color
+    for (let i = 0; i < frequencyData.length; i++) {
+      const barHeight = frequencyData[i] * heightScale;
+      ctx.fillRect(
+        i * barWidth,
+        canvas.height - barHeight,
+        barWidth - 1,
+        barHeight
+      );
+    }
 
-      ctx.fillStyle = 'rgb(147, 51, 234)'; // Purple color
-      for (let i = 0; i < frequencyData.length; i++) {
-        const barHeight = frequencyData[i] * heightScale;
-        ctx.fillRect(
-          i * barWidth,
-          canvas.height - barHeight,
-          barWidth - 1,
-          barHeight
-        );
-      }
-
-      // Draw waveform overlay
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 2;
-
-      const sliceWidth = canvas.width / timeData.length;
-      let x = 0;
-
-      for (let i = 0; i < timeData.length; i++) {
-        const v = timeData[i] / 128.0;
-        const y = (v * canvas.height) / 2;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-
-        x += sliceWidth;
-      }
-
-      ctx.stroke();
-
-      if (isPlaying) {
-        animationFrameRef.current = requestAnimationFrame(drawVisualization);
-      }
-    } catch (error) {
-      console.error('Visualization error:', error);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(drawVisualization);
     }
   };
 
   const togglePlayback = async () => {
     if (!audioRef.current) {
-      console.error('No audio element available');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Audio not available",
+      });
       return;
     }
 
@@ -193,9 +140,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
           cancelAnimationFrame(animationFrameRef.current);
         }
       } else {
-        if (audioContextRef.current?.state === 'suspended') {
-          await audioContextRef.current.resume();
-        }
+        await setupAudioContext();
         await audioRef.current.play();
         drawVisualization();
       }
