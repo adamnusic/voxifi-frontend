@@ -1,70 +1,95 @@
 
 # VoxiFi Frontend
 
-A WebXR audio visualization platform that allows users to create voice-based NFTs on the Aptos blockchain.
+A WebXR-enabled voice NFT platform built on Aptos blockchain with real-time audio visualization.
 
-## Features
+## 🌟 Features
 
-- Voice recording and playback functionality
-- WebXR-based audio visualization
-- NFT minting on Aptos blockchain
-- Voice cloning capabilities
-- Real-time audio processing
-- Firebase integration for storage
+- **Voice Recording & Minting**: Create unique voice-based NFTs
+- **WebXR Visualization**: Immersive 3D audio visualization
+- **Voice Cloning**: Advanced voice synthesis capabilities
+- **Blockchain Integration**: Seamless minting on Aptos blockchain
+- **Real-time Processing**: Live audio processing and feedback
+- **Secure Storage**: Firebase integration for reliable data management
 
-## Tech Stack
+## 🚀 Quick Start
 
-- React + TypeScript
-- Vite
-- Tailwind CSS
-- Firebase (Storage & Firestore)
-- Aptos SDK
-- Express.js backend
-- WebXR API
-
-## Getting Started
-
-1. Clone the repository:
+1. Clone and install:
 ```bash
 git clone https://github.com/adamnusic/voxifi-frontend.git
 cd voxifi-frontend
-```
-
-2. Install dependencies:
-```bash
 npm install
 ```
 
-3. Set up environment variables:
-- Copy `.env.example` to `.env`
-- Fill in required Firebase and Aptos configurations
+2. Set up environment:
+- Copy `.env.example` to `.env` in the client directory
+- Configure Firebase and Aptos credentials
 
-4. Start the development server:
+3. Start development server:
 ```bash
 npm run dev
 ```
 
-## Project Structure
+## 🏗️ Architecture
 
-- `/client` - Frontend React application
-  - `/src/components` - React components
-  - `/src/services` - Firebase and API services
-  - `/src/utils` - Utility functions
-  - `/src/hooks` - Custom React hooks
-  
-- `/server` - Express.js backend
-  - API routes
-  - Voice processing
-  - Blockchain integration
+### Frontend (`/client`)
+- React + TypeScript for robust UI
+- Vite for fast development
+- Tailwind CSS for styling
+- WebXR API for immersive experiences
 
-## Contributing
+### Backend (`/server`)
+- Express.js for API routing
+- Voice processing integration
+- Blockchain transaction handling
+
+### Services
+- Firebase Storage & Firestore
+- Aptos blockchain integration
+- Voice synthesis API
+
+## 🛠️ Tech Stack
+
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **State Management**: React Query
+- **3D Rendering**: Three.js
+- **Blockchain**: Aptos SDK
+- **Storage**: Firebase
+- **Backend**: Express.js
+
+## 📦 Project Structure
+
+```
+/
+├── client/
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── hooks/       # Custom React hooks
+│   │   ├── services/    # API & Firebase services
+│   │   ├── utils/       # Helper functions
+│   │   └── pages/       # Route components
+├── server/
+│   ├── routes.ts        # API endpoints
+│   └── storage.ts       # Storage handling
+└── shared/
+    └── schema.ts        # Shared type definitions
+```
+
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
+3. Commit changes
+4. Push to your branch
 5. Open a Pull Request
 
-## License
+## 📄 License
 
-MIT License
+MIT License - see LICENSE file for details
+
+## 🔗 Links
+
+- [Live Demo](https://voxifi-frontend.repl.co)
+- [Documentation](https://github.com/adamnusic/voxifi-frontend/wiki)
