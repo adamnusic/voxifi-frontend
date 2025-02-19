@@ -47,7 +47,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     if (!ctx) return;
 
     const audioData = analyzerRef.current.getAudioData();
-    
+
     // Clear canvas
     ctx.fillStyle = 'rgb(23, 23, 23)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -93,15 +93,17 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {
-      if (isPlaying) togglePlayback();
-      onClose();
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        if (isPlaying) togglePlayback();
+        onClose();
+      }
     }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Voiceprint NFT Preview - {nftId}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="mt-4">
           <canvas 
             ref={canvasRef}
@@ -109,7 +111,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
             height={200}
             className="w-full rounded-lg bg-background border"
           />
-          
+
           <div className="mt-4 flex justify-center">
             <Button
               onClick={togglePlayback}
