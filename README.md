@@ -91,5 +91,4 @@ MIT License - see LICENSE file for details
 
 ## 🔗 Links
 
-- [Live Demo](https://voxifi-frontend.repl.co)
-- [Documentation](https://github.com/adamnusic/voxifi-frontend/wiki)
+- [Live Demo](https://voxifinft.replit.app/)
