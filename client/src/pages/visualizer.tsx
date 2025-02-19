@@ -49,6 +49,11 @@ export default function Visualizer() {
     }
   };
 
+  const handleStartClick = async () => {
+    console.log('Start button clicked');
+    await initializeVisualization();
+  };
+
   const initializeVisualization = async () => {
     if (!containerRef.current) return;
     console.log('Starting visualization initialization...');
@@ -109,6 +114,18 @@ export default function Visualizer() {
     }
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+      }
+      if (sceneRef.current?.renderer) {
+        sceneRef.current.renderer.dispose();
+      }
+    };
+  }, []);
+
   if (error || needsMicPermission) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background">
@@ -134,10 +151,7 @@ export default function Visualizer() {
                 </>
               )}
               <Button 
-                onClick={() => {
-                  console.log('Retry button clicked');
-                  initializeVisualization();
-                }}
+                onClick={handleStartClick}
                 className="w-full"
               >
                 Try Again
@@ -161,10 +175,7 @@ export default function Visualizer() {
                 Click the button below to start. You'll be prompted for microphone access.
               </p>
               <Button 
-                onClick={() => {
-                  console.log('Start button clicked');
-                  initializeVisualization();
-                }}
+                onClick={handleStartClick}
                 className="w-full"
                 disabled={isInitializing}
               >
