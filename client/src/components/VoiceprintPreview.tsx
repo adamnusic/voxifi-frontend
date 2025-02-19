@@ -18,10 +18,10 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number>();
   const audioContextRef = useRef<AudioContext>();
-  const analyzerRef = useRef<{ getAudioData: () => AudioData } | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode>();
+  const analyzerRef = useRef<AnalyserNode>();
   const { toast } = useToast();
 
-  // Clean up function to handle all resource cleanup
   const cleanup = () => {
     try {
       if (animationFrameRef.current) {
@@ -31,15 +31,24 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
 
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current = null;
+        audioRef.current.src = '';
+      }
+
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.disconnect();
+      }
+
+      if (analyzerRef.current) {
+        analyzerRef.current.disconnect();
       }
 
       if (audioContextRef.current?.state !== 'closed') {
         audioContextRef.current?.close();
-        audioContextRef.current = undefined;
       }
 
-      analyzerRef.current = null;
+      audioContextRef.current = undefined;
+      sourceNodeRef.current = undefined;
+      analyzerRef.current = undefined;
     } catch (error) {
       console.error('Cleanup error:', error);
     }
@@ -48,32 +57,33 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   useEffect(() => {
     if (!audioBlob || !isOpen || !canvasRef.current) return;
 
-    let audioUrl: string;
+    let audioUrl: string | undefined;
+
     try {
-      // Create audio element with blob URL
       audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+      const audio = new Audio();
+      audio.src = audioUrl;
       audioRef.current = audio;
 
-      // Create AudioContext and analyzer
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
 
-      const source = audioContext.createMediaStreamSource(new MediaStream());
-      source.connect(audioContext.destination);
+      // Create analyzer node
+      const analyzer = audioContext.createAnalyser();
+      analyzer.fftSize = 2048;
+      analyzerRef.current = analyzer;
 
-      // Set up audio analyzer
-      setupAudioAnalyzer().then((analyzer) => {
-        analyzerRef.current = analyzer;
-        console.log('Audio analyzer setup complete');
-      }).catch((error) => {
-        console.error('Audio analyzer setup failed:', error);
-        toast({
-          variant: "destructive",
-          title: "Visualization Error",
-          description: "Failed to setup audio visualization",
-        });
-      });
+      // Create and connect source when audio is loaded
+      audio.oncanplaythrough = () => {
+        if (!audioContextRef.current) return;
+
+        const source = audioContextRef.current.createMediaElementSource(audio);
+        sourceNodeRef.current = source;
+
+        // Connect source -> analyzer -> destination
+        source.connect(analyzer);
+        analyzer.connect(audioContextRef.current.destination);
+      };
 
       // Handle audio end
       audio.onended = () => {
@@ -85,7 +95,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
 
       return () => {
         cleanup();
-        URL.revokeObjectURL(audioUrl);
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
       };
     } catch (error) {
       console.error('Preview setup error:', error);
@@ -107,19 +117,24 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     if (!ctx) return;
 
     try {
-      const audioData = analyzerRef.current.getAudioData();
+      // Get frequency and time domain data
+      const frequencyData = new Uint8Array(analyzerRef.current.frequencyBinCount);
+      const timeData = new Uint8Array(analyzerRef.current.frequencyBinCount);
+
+      analyzerRef.current.getByteFrequencyData(frequencyData);
+      analyzerRef.current.getByteTimeDomainData(timeData);
 
       // Clear canvas
       ctx.fillStyle = 'rgb(23, 23, 23)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Draw frequency bars
-      const barWidth = canvas.width / audioData.frequencies.length;
+      const barWidth = canvas.width / frequencyData.length;
       const heightScale = canvas.height / 255;
 
       ctx.fillStyle = 'rgb(147, 51, 234)'; // Purple color
-      for (let i = 0; i < audioData.frequencies.length; i++) {
-        const barHeight = audioData.frequencies[i] * heightScale;
+      for (let i = 0; i < frequencyData.length; i++) {
+        const barHeight = frequencyData[i] * heightScale;
         ctx.fillRect(
           i * barWidth,
           canvas.height - barHeight,
@@ -133,11 +148,11 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
       ctx.lineWidth = 2;
 
-      const sliceWidth = canvas.width / audioData.waveform.length;
+      const sliceWidth = canvas.width / timeData.length;
       let x = 0;
 
-      for (let i = 0; i < audioData.waveform.length; i++) {
-        const v = audioData.waveform[i] / 128.0;
+      for (let i = 0; i < timeData.length; i++) {
+        const v = timeData[i] / 128.0;
         const y = (v * canvas.height) / 2;
 
         if (i === 0) {
@@ -172,7 +187,6 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
           cancelAnimationFrame(animationFrameRef.current);
         }
       } else {
-        // Resume audio context if it was suspended
         if (audioContextRef.current?.state === 'suspended') {
           await audioContextRef.current.resume();
         }
