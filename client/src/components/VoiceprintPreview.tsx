@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Play, Pause } from "lucide-react";
-import { setupAudioAnalyzer, type AudioData } from '@/lib/audio';
 import { useToast } from '@/hooks/use-toast';
 
 interface VoiceprintPreviewProps {
@@ -31,7 +30,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
 
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.src = '';
+        audioRef.current.currentTime = 0;
       }
 
       if (sourceNodeRef.current) {
@@ -59,54 +58,59 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
 
     let audioUrl: string | undefined;
 
-    try {
-      audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio();
-      audio.src = audioUrl;
-      audioRef.current = audio;
+    const setupAudio = async () => {
+      try {
+        audioUrl = URL.createObjectURL(audioBlob);
 
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
+        // Create and setup audio element
+        const audio = new Audio();
+        audio.src = audioUrl;
+        audioRef.current = audio;
 
-      // Create analyzer node
-      const analyzer = audioContext.createAnalyser();
-      analyzer.fftSize = 2048;
-      analyzerRef.current = analyzer;
+        // Create audio context and nodes
+        const audioContext = new AudioContext();
+        audioContextRef.current = audioContext;
 
-      // Create and connect source when audio is loaded
-      audio.oncanplaythrough = () => {
-        if (!audioContextRef.current) return;
+        const analyzer = audioContext.createAnalyser();
+        analyzer.fftSize = 2048;
+        analyzerRef.current = analyzer;
 
-        const source = audioContextRef.current.createMediaElementSource(audio);
+        // Create source node and connect it
+        const source = audioContext.createMediaElementSource(audio);
         sourceNodeRef.current = source;
 
-        // Connect source -> analyzer -> destination
+        // Connect nodes: source -> analyzer -> destination
         source.connect(analyzer);
-        analyzer.connect(audioContextRef.current.destination);
-      };
+        analyzer.connect(audioContext.destination);
 
-      // Handle audio end
-      audio.onended = () => {
-        setIsPlaying(false);
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-      };
+        // Setup audio event handlers
+        audio.onended = () => {
+          setIsPlaying(false);
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+          }
+        };
 
-      return () => {
+        console.log('Audio setup complete');
+      } catch (error) {
+        console.error('Audio setup error:', error);
+        toast({
+          variant: "destructive",
+          title: "Setup Error",
+          description: "Failed to setup audio preview",
+        });
         cleanup();
-        if (audioUrl) URL.revokeObjectURL(audioUrl);
-      };
-    } catch (error) {
-      console.error('Preview setup error:', error);
-      toast({
-        variant: "destructive",
-        title: "Preview Error",
-        description: "Failed to setup audio preview",
-      });
+      }
+    };
+
+    setupAudio();
+
+    return () => {
       cleanup();
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-    }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
   }, [audioBlob, isOpen]);
 
   const drawVisualization = () => {
@@ -117,7 +121,6 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     if (!ctx) return;
 
     try {
-      // Get frequency and time domain data
       const frequencyData = new Uint8Array(analyzerRef.current.frequencyBinCount);
       const timeData = new Uint8Array(analyzerRef.current.frequencyBinCount);
 
@@ -178,7 +181,10 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   };
 
   const togglePlayback = async () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current) {
+      console.error('No audio element available');
+      return;
+    }
 
     try {
       if (isPlaying) {
