@@ -85,40 +85,62 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       console.log('Account created:', account.accountAddress.toString());
 
       try {
-        // Build and submit the transaction
-        const transaction = await aptos.transaction.build.simple({
-          sender: account.accountAddress,
-          data: {
-            function: "0x4::collection::create_collection_script",
-            typeArguments: [],
-            functionArguments: [
-              "VoicePrint", // Collection name
-              "Audio NFT Collection", // Description
-              "https://voiceprint.example.com", // Collection URI
-              "unlimited", // Maximum supply
-              true, // Allow mutation
-            ],
-          },
+        // Get test tokens from faucet
+        toast({
+          title: "Preparing NFT Mint",
+          description: "Requesting test tokens..."
         });
 
-        // Sign and submit transaction
-        const signedTxn = await aptos.transaction.sign({ signer: account, transaction });
-        const pendingTxn = await aptos.transaction.submit.simple({ transaction: signedTxn });
+        const faucetUrl = "https://faucet.testnet.aptoslabs.com/v1/fund";
+        const fundResponse = await fetch(`${faucetUrl}?address=${account.accountAddress.toString()}&amount=100000000`);
 
-        await aptos.waitForTransaction({ transactionHash: pendingTxn.hash });
+        if (!fundResponse.ok) {
+          throw new Error('Failed to fund account with test tokens');
+        }
+
+        toast({
+          title: "Account Funded",
+          description: "Creating your voice NFT..."
+        });
+
+        // Build transaction payload
+        const payload = {
+          function: "0x4::collection::create_collection_script",
+          type_arguments: [],
+          arguments: [
+            "VoicePrint",
+            "Audio NFT Collection",
+            "https://voiceprint.example.com",
+            "unlimited",
+            [true, true, true] // Mutable: description, uri, token_properties
+          ]
+        };
+
+        // Build and sign transaction
+        const rawTxn = await aptos.client.generateTransaction(account.accountAddress, payload);
+        const signedTxn = await aptos.client.signTransaction(account, rawTxn);
+        const pendingTxn = await aptos.client.submitTransaction(signedTxn);
+
+        toast({
+          title: "NFT Minting...",
+          description: "Waiting for blockchain confirmation..."
+        });
+
+        // Wait for transaction
+        const txnResult = await aptos.client.waitForTransactionWithResult(pendingTxn.hash);
 
         toast({
           title: "NFT Minted Successfully!",
-          description: `Transaction hash: ${pendingTxn.hash.slice(0, 10)}...`
+          description: `Transaction hash: ${txnResult.hash.slice(0, 10)}...`
         });
 
-        console.log('NFT minted successfully! Transaction hash:', pendingTxn.hash);
+        console.log('NFT minted successfully!', txnResult);
       } catch (txError) {
         console.error('Transaction failed:', txError);
         toast({
           variant: "destructive",
           title: "Minting Failed",
-          description: "Could not mint NFT on Aptos blockchain"
+          description: "Could not mint NFT on Aptos blockchain. Check console for details."
         });
         throw new Error('Failed to mint NFT: Transaction error');
       }
@@ -130,7 +152,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to process voice NFT"
+        description: "Failed to process voice NFT. Check console for details."
       });
     }
   };
