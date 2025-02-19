@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { uploadUserRecording } from "@/services/storage/userRecordings.storage";
 import { createUserRecording } from "@/services/db/userRecordings.service";
 import axios from "axios";
+import { getTtsAudioUrl } from "@/utils/helper";
 
 interface VoicePrintButtonProps {
   onRecordingChange: (isRecording: boolean) => void;
@@ -24,6 +25,8 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [docId, setDocId] = useState<string>("");
   const [audioUrl, setAudioUrl] = useState<string>("");
   const [mintTxUrl, setMintTxUrl] = useState<string>("");
+  const [convertedAudioUrl, setConvertedAudioUrl] = useState<string>("");
+  const [isConverting, setIsConverting] = useState(false);
 
   const startRecording = async () => {
     try {
@@ -125,7 +128,10 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       // Simulate processing delay
       // await new Promise((resolve) => setTimeout(resolve, 2000));
       const response = await axios.post(
-        `${import.meta.env.VITE_AGENT_SERVER_URL}/deploy-digital-asset-aptos`,
+        `${import.meta.env.VITE_AGENT_SERVER_URL}/mint-digital-asset-aptos`,
+        {
+          name: `Voiceprint NFT Sample - ${docId}`,
+        },
       );
       const url = await response.data.url;
       setMintTxUrl(url);
@@ -218,6 +224,36 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
               >
                 View NFT Transaction
               </a>
+              <p className="mb-4">Copy your Audio ID: {docId}</p>
+              {convertedAudioUrl ? (
+                <audio src={convertedAudioUrl} controls />
+              ) : (
+                <div
+                  onClick={async () => {
+                    if (isConverting) return;
+                    setIsConverting(true);
+                    try {
+                      const url = await getTtsAudioUrl(
+                        "This hackathon is bringing out the fire in me",
+                        audioUrl,
+                      );
+
+                      url && setConvertedAudioUrl(url);
+                    } catch (e) {
+                      alert(
+                        "Currently the GPU is busy, please try again later",
+                      );
+                    } finally {
+                      setIsConverting(false);
+                    }
+                  }}
+                  className="text-lg font-medium"
+                >
+                  <span className="bg-blue-200 px-4 py-2 rounded hover:bg-blue-300 transition-colors inline-block w-full text-center">
+                    {isConverting ? "Loading..." : "Create Fake Voice"}
+                  </span>
+                </div>
+              )}
               <a
                 href="https://voxifi-aptos-agent.vercel.app/"
                 target="_blank"
@@ -225,8 +261,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
                 className="text-lg font-medium"
               >
                 <span className="bg-yellow-200 px-4 py-2 rounded hover:bg-yellow-300 transition-colors inline-block w-full text-center">
-                  You can now create a Prediction Market using the Aptos
-                  Agentkit! →
+                  Create a Prediction Market Now! →
                 </span>
               </a>
             </div>

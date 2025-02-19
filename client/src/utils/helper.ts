@@ -5,8 +5,13 @@ export const getTtsAudioUrl = async (text: string, audioUrl: string) => {
     `${import.meta.env.VITE_AGENT_SERVER_URL}/llasa-voice-synthesizer`,
     {
       text,
-      audioUrl,
-    }
+      audio_url: audioUrl,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
   );
   return response.data.url;
 };
