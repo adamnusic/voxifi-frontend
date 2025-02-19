@@ -24,20 +24,33 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     // Create audio element with blob URL
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
+    audio.onended = () => {
+      setIsPlaying(false);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
     audioRef.current = audio;
 
-    // Set up audio analyzer
-    setupAudioAnalyzer().then((analyzer) => {
-      analyzerRef.current = analyzer;
-    });
+    // Set up audio analyzer as soon as dialog opens
+    if (isOpen) {
+      setupAudioAnalyzer().then((analyzer) => {
+        analyzerRef.current = analyzer;
+        // Start visualization immediately if needed
+        if (isPlaying) {
+          drawVisualization();
+        }
+      });
+    }
 
     return () => {
       URL.revokeObjectURL(audioUrl);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      audio.pause();
     };
-  }, [audioBlob]);
+  }, [audioBlob, isOpen]);
 
   const drawVisualization = () => {
     if (!canvasRef.current || !analyzerRef.current) return;
@@ -52,13 +65,28 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     ctx.fillStyle = 'rgb(23, 23, 23)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw waveform
+    // Draw frequency bars
+    const barWidth = canvas.width / audioData.frequencies.length;
+    const heightScale = canvas.height / 255;
+
+    ctx.fillStyle = 'rgb(147, 51, 234)'; // Purple color
+    for (let i = 0; i < audioData.frequencies.length; i++) {
+      const barHeight = audioData.frequencies[i] * heightScale;
+      ctx.fillRect(
+        i * barWidth,
+        canvas.height - barHeight,
+        barWidth - 1,
+        barHeight
+      );
+    }
+
+    // Draw waveform overlay
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 2;
+
     const sliceWidth = canvas.width / audioData.waveform.length;
     let x = 0;
-
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgb(147, 51, 234)'; // Purple color
-    ctx.lineWidth = 2;
 
     for (let i = 0; i < audioData.waveform.length; i++) {
       const v = audioData.waveform[i] / 128.0;
@@ -74,7 +102,10 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     }
 
     ctx.stroke();
-    animationFrameRef.current = requestAnimationFrame(drawVisualization);
+
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(drawVisualization);
+    }
   };
 
   const togglePlayback = () => {
