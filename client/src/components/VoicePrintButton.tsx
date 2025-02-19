@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { VoiceprintPreview } from './VoiceprintPreview';
 
 interface VoicePrintButtonProps {
   onRecordingChange: (isRecording: boolean) => void;
@@ -13,6 +14,9 @@ let audioChunks: Blob[] = [];
 export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
+  const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [nftId, setNftId] = useState<string>('');
   const { toast } = useToast();
 
   const startRecording = async () => {
@@ -27,6 +31,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        setRecordedAudio(audioBlob);
         await mockMintNFT(audioBlob);
       };
 
@@ -79,12 +84,17 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       // Simulate processing delay
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      const generatedId = "VP-" + Math.random().toString(36).substr(2, 9);
+      setNftId(generatedId);
+
       toast({
         title: "Success!",
-        description: "Your Voiceprint NFT has been created! ID: VP-" + Math.random().toString(36).substr(2, 9),
+        description: "Your Voiceprint NFT has been created! ID: " + generatedId,
         duration: 4000,
       });
 
+      // Show preview after successful minting
+      setShowPreview(true);
       setIsMinting(false);
     } catch (error) {
       console.error('Error creating Voiceprint NFT:', error);
@@ -107,23 +117,32 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   };
 
   return (
-    <Button 
-      onClick={handleClick}
-      disabled={isMinting}
-      className="fixed bottom-4 right-4 gap-2"
-      variant={isRecording ? "destructive" : "default"}
-    >
-      {isRecording ? (
-        <>
-          <Square className="h-4 w-4" />
-          Stop Recording
-        </>
-      ) : (
-        <>
-          <Mic className="h-4 w-4" />
-          {isMinting ? 'Creating...' : 'Mint Voiceprint NFT'}
-        </>
-      )}
-    </Button>
+    <>
+      <Button 
+        onClick={handleClick}
+        disabled={isMinting}
+        className="fixed bottom-4 right-4 gap-2"
+        variant={isRecording ? "destructive" : "default"}
+      >
+        {isRecording ? (
+          <>
+            <Square className="h-4 w-4" />
+            Stop Recording
+          </>
+        ) : (
+          <>
+            <Mic className="h-4 w-4" />
+            {isMinting ? 'Creating...' : 'Mint Voiceprint NFT'}
+          </>
+        )}
+      </Button>
+
+      <VoiceprintPreview 
+        audioBlob={recordedAudio}
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        nftId={nftId}
+      />
+    </>
   );
 }
