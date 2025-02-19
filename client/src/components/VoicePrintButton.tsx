@@ -4,6 +4,9 @@ import { Mic, Square, Play, Pause } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { uploadUserRecording } from "@/services/storage/userRecordings.storage";
 import { createUserRecording } from "@/services/db/userRecordings.service";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { getTtsAudioUrl } from "@/utils/helper";
 
 interface VoicePrintButtonProps {
   onRecordingChange: (isRecording: boolean) => void;
@@ -20,6 +23,9 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [nftId, setNftId] = useState<string>("");
+  const [showTtsDialog, setShowTtsDialog] = useState(false);
+  const [ttsText, setTtsText] = useState("");
+  const [isProcessingTts, setIsProcessingTts] = useState(false);
   const { toast } = useToast();
   const [docId, setDocId] = useState<string>("");
   const [audioUrl, setAudioUrl] = useState<string>("");
@@ -55,6 +61,9 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         // Set audio as ready only after all processing is complete
         await mockMintNFT(audioBlob, docId);
         setIsAudioReady(true);
+
+        // Show TTS dialog after recording is complete
+        setShowTtsDialog(true);
       };
 
       mediaRecorder.start();
@@ -112,6 +121,40 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
     }
   };
 
+  const handleTtsSubmit = async () => {
+    if (!ttsText.trim() || !audioUrl) return;
+
+    try {
+      setIsProcessingTts(true);
+      const ttsAudioUrl = await getTtsAudioUrl(ttsText, audioUrl);
+
+      // Update audio player with new TTS audio
+      if (audioPlayer) {
+        audioPlayer.pause();
+      }
+      audioPlayer = new Audio(ttsAudioUrl);
+      audioPlayer.onended = () => setIsPlaying(false);
+      setIsAudioReady(true);
+      setShowTtsDialog(false);
+
+      toast({
+        title: "Success",
+        description: "TTS audio generated successfully",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error("TTS error:", error);
+      toast({
+        variant: "destructive",
+        title: "TTS Error",
+        description: "Failed to generate TTS audio",
+        duration: 4000,
+      });
+    } finally {
+      setIsProcessingTts(false);
+    }
+  };
+
   const mockMintNFT = async (audioBlob: Blob, docId: string) => {
     try {
       setIsMinting(true);
@@ -159,46 +202,72 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 flex gap-2">
-      <Button
-        onClick={handleClick}
-        disabled={isMinting}
-        className="gap-2"
-        variant={isRecording ? "destructive" : "default"}
-      >
-        {isRecording ? (
-          <>
-            <Square className="h-4 w-4" />
-            Stop Recording
-          </>
-        ) : (
-          <>
-            <Mic className="h-4 w-4" />
-            {isMinting ? "Creating..." : "Mint Voiceprint NFT"}
-          </>
-        )}
-      </Button>
-
-      {recordedAudio && isAudioReady && !isRecording && (
+    <>
+      <div className="fixed bottom-4 right-4 flex gap-2">
         <Button
-          onClick={togglePlayback}
-          variant="outline"
-          className="gap-2"
+          onClick={handleClick}
           disabled={isMinting}
+          className="gap-2"
+          variant={isRecording ? "destructive" : "default"}
         >
-          {isPlaying ? (
+          {isRecording ? (
             <>
-              <Pause className="h-4 w-4" />
-              Pause
+              <Square className="h-4 w-4" />
+              Stop Recording
             </>
           ) : (
             <>
-              <Play className="h-4 w-4" />
-              Play
+              <Mic className="h-4 w-4" />
+              {isMinting ? "Creating..." : "Mint Voiceprint NFT"}
             </>
           )}
         </Button>
-      )}
-    </div>
+
+        {recordedAudio && isAudioReady && !isRecording && (
+          <Button
+            onClick={togglePlayback}
+            variant="outline"
+            className="gap-2"
+            disabled={isMinting}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="h-4 w-4" />
+                Pause
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4" />
+                Play
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+
+      <Dialog open={showTtsDialog} onOpenChange={setShowTtsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate TTS Audio</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Input
+              placeholder="Enter text to convert to speech..."
+              value={ttsText}
+              onChange={(e) => setTtsText(e.target.value)}
+              disabled={isProcessingTts}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleTtsSubmit}
+              disabled={!ttsText.trim() || isProcessingTts}
+            >
+              {isProcessingTts ? "Processing..." : "Generate TTS"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
