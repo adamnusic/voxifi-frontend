@@ -19,6 +19,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   const audioContextRef = useRef<AudioContext>();
   const analyzerRef = useRef<AnalyserNode>();
   const { toast } = useToast();
+  const hueRef = useRef(0);
 
   useEffect(() => {
     if (!audioBlob || !isOpen) return;
@@ -71,6 +72,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
       if (!analyzerRef.current) {
         const analyzer = audioContextRef.current.createAnalyser();
         analyzer.fftSize = 2048;
+        analyzer.smoothingTimeConstant = 0.85;
         analyzerRef.current = analyzer;
 
         // Connect audio element to analyzer and destination
@@ -95,28 +97,64 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Get frequency data
+    // Get frequency and time domain data
     const frequencyData = new Uint8Array(analyzerRef.current.frequencyBinCount);
+    const timeData = new Uint8Array(analyzerRef.current.frequencyBinCount);
     analyzerRef.current.getByteFrequencyData(frequencyData);
+    analyzerRef.current.getByteTimeDomainData(timeData);
 
-    // Clear canvas
-    ctx.fillStyle = 'rgb(23, 23, 23)';
+    // Clear canvas with fade effect
+    ctx.fillStyle = 'rgba(23, 23, 23, 0.2)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Calculate average frequency for color modulation
+    const average = frequencyData.reduce((acc, val) => acc + val, 0) / frequencyData.length;
+    hueRef.current = (hueRef.current + 0.5) % 360;
+
     // Draw frequency bars
-    const barWidth = canvas.width / frequencyData.length;
+    const barWidth = canvas.width / (frequencyData.length / 2);
     const heightScale = canvas.height / 255;
 
-    ctx.fillStyle = 'rgb(147, 51, 234)'; // Purple color
-    for (let i = 0; i < frequencyData.length; i++) {
+    for (let i = 0; i < frequencyData.length / 2; i++) {
       const barHeight = frequencyData[i] * heightScale;
-      ctx.fillRect(
-        i * barWidth,
-        canvas.height - barHeight,
-        barWidth - 1,
-        barHeight
-      );
+
+      // Dynamic color based on frequency and time
+      const hue = (hueRef.current + (i / frequencyData.length) * 180) % 360;
+      const saturation = 80 + (average / 255) * 20;
+      const lightness = 40 + (frequencyData[i] / 255) * 30;
+
+      ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+
+      // Draw mirrored bars
+      const x = canvas.width / 2 + i * barWidth;
+      const mirrorX = canvas.width / 2 - (i + 1) * barWidth;
+
+      ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+      ctx.fillRect(mirrorX, canvas.height - barHeight, barWidth - 1, barHeight);
     }
+
+    // Draw waveform
+    ctx.beginPath();
+    ctx.strokeStyle = `hsla(${hueRef.current}, 80%, 60%, 0.5)`;
+    ctx.lineWidth = 2;
+
+    const sliceWidth = canvas.width / timeData.length;
+    let x = 0;
+
+    for (let i = 0; i < timeData.length; i++) {
+      const v = timeData[i] / 128.0;
+      const y = (v * canvas.height) / 2;
+
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+
+      x += sliceWidth;
+    }
+
+    ctx.stroke();
 
     if (isPlaying) {
       animationFrameRef.current = requestAnimationFrame(drawVisualization);
