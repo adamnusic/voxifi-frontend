@@ -202,51 +202,49 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   };
 
   return (
-    <>
-      <div className="fixed bottom-4 right-4 flex gap-2">
+    <div className="fixed bottom-4 right-4 flex gap-2">
+      <Button
+        onClick={handleClick}
+        disabled={isMinting}
+        className="gap-2"
+        variant={isRecording ? "destructive" : "default"}
+      >
+        {isRecording ? (
+          <>
+            <Square className="h-4 w-4" />
+            Stop Recording
+          </>
+        ) : (
+          <>
+            <Mic className="h-4 w-4" />
+            {isMinting ? "Creating..." : "Mint Voiceprint NFT"}
+          </>
+        )}
+      </Button>
+
+      {recordedAudio && isAudioReady && !isRecording && (
         <Button
-          onClick={handleClick}
-          disabled={isMinting}
+          onClick={togglePlayback}
+          variant="outline"
           className="gap-2"
-          variant={isRecording ? "destructive" : "default"}
+          disabled={isMinting}
         >
-          {isRecording ? (
+          {isPlaying ? (
             <>
-              <Square className="h-4 w-4" />
-              Stop Recording
+              <Pause className="h-4 w-4" />
+              Pause
             </>
           ) : (
             <>
-              <Mic className="h-4 w-4" />
-              {isMinting ? "Creating..." : "Mint Voiceprint NFT"}
+              <Play className="h-4 w-4" />
+              Play
             </>
           )}
         </Button>
-
-        {recordedAudio && isAudioReady && !isRecording && (
-          <Button
-            onClick={togglePlayback}
-            variant="outline"
-            className="gap-2"
-            disabled={isMinting}
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="h-4 w-4" />
-                Pause
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4" />
-                Play
-              </>
-            )}
-          </Button>
-        )}
-      </div>
+      )}
 
       <Dialog open={showTtsDialog} onOpenChange={setShowTtsDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Generate TTS Audio</DialogTitle>
           </DialogHeader>
@@ -268,6 +266,6 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
