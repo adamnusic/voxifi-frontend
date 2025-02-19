@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Account, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import { Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,7 +27,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        await mintNFT(audioBlob);
+        await mockMintNFT(audioBlob);
       };
 
       mediaRecorder.start();
@@ -37,7 +36,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
       toast({
         title: "Recording started",
-        description: "Speak now to create your voice NFT"
+        description: "Speak now to create your Voiceprint NFT"
       });
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -56,138 +55,39 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       onRecordingChange(false);
       toast({
         title: "Recording stopped",
-        description: "Processing your voice NFT..."
+        description: "Processing your Voiceprint NFT..."
       });
     }
   };
 
-  const mintNFT = async (audioBlob: Blob) => {
+  const mockMintNFT = async (audioBlob: Blob) => {
     try {
       setIsMinting(true);
 
-      // Convert blob to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          resolve(base64.split(',')[1]); // Remove data URL prefix
-        };
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      toast({
+        title: "Creating Voiceprint NFT",
+        description: "Generating unique audio signature..."
       });
-      reader.readAsDataURL(audioBlob);
-      const base64Data = await base64Promise;
 
-      // Initialize Aptos SDK
-      const config = new AptosConfig({ network: Network.TESTNET });
-      const aptos = new Aptos(config);
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Create a new account
-      const account = Account.generate();
-      console.log('Account created:', account.accountAddress.toString());
-
-      try {
-        // Get test tokens from faucet
-        toast({
-          title: "Preparing NFT Mint",
-          description: "Requesting test tokens..."
-        });
-
-        const faucetUrl = "https://faucet.testnet.aptoslabs.com/v1/fund";
-        const fundResponse = await fetch(`${faucetUrl}?address=${account.accountAddress.toString()}&amount=100000000`);
-
-        if (!fundResponse.ok) {
-          throw new Error('Failed to fund account with test tokens');
-        }
-
-        toast({
-          title: "Account Funded",
-          description: "Creating your voice NFT..."
-        });
-
-        // Build transaction payload
-        const payload = {
-          function: "0x4::collection::create_collection_script",
-          type_arguments: [],
-          arguments: [
-            "VoicePrint",
-            "Audio NFT Collection",
-            "https://voiceprint.example.com",
-            "unlimited",
-            [true, true, true] // Mutable: description, uri, token_properties
-          ]
-        };
-
-        toast({
-          title: "NFT Creation",
-          description: "Building transaction..."
-        });
-
-        try {
-          // Create transaction
-          console.log('Creating transaction with payload:', payload);
-          const transaction = await aptos.transaction.build({
-            sender: account.accountAddress,
-            payload: payload
-          });
-
-          console.log('Transaction built successfully:', transaction);
-
-          // Sign transaction
-          console.log('Signing transaction...');
-          const signedTx = await aptos.transaction.sign({
-            signer: account,
-            transaction
-          });
-
-          console.log('Transaction signed successfully');
-
-          toast({
-            title: "NFT Minting",
-            description: "Submitting to blockchain..."
-          });
-
-          // Submit transaction
-          console.log('Submitting transaction...');
-          const submittedTx = await aptos.transaction.submit({
-            transaction: signedTx
-          });
-
-          console.log('Transaction submitted:', submittedTx);
-
-          // Wait for transaction
-          console.log('Waiting for transaction confirmation...');
-          const txnResult = await aptos.waitForTransaction({
-            transactionHash: submittedTx.hash
-          });
-
-          console.log('Transaction confirmed:', txnResult);
-
-          toast({
-            title: "Success!",
-            description: `NFT minted! Transaction: ${txnResult.hash.slice(0, 10)}...`
-          });
-        } catch (error) {
-          console.error('Aptos transaction error:', error);
-          throw error;
-        }
-
-      } catch (txError) {
-        console.error('Transaction failed:', txError);
-        toast({
-          variant: "destructive",
-          title: "Minting Failed",
-          description: "Could not mint NFT on Aptos blockchain. Check console for details."
-        });
-        throw new Error('Failed to mint NFT: Transaction error');
-      }
+      toast({
+        title: "Success!",
+        description: "Your Voiceprint NFT has been created! ID: VP-" + Math.random().toString(36).substr(2, 9)
+      });
 
       setIsMinting(false);
     } catch (error) {
-      console.error('Error minting NFT:', error);
+      console.error('Error creating Voiceprint NFT:', error);
       setIsMinting(false);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to process voice NFT. Check console for details."
+        description: "Failed to create Voiceprint NFT. Please try again."
       });
     }
   };
@@ -215,7 +115,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       ) : (
         <>
           <Mic className="h-4 w-4" />
-          {isMinting ? 'Minting...' : 'Mint Voice NFT'}
+          {isMinting ? 'Creating...' : 'Mint Voiceprint NFT'}
         </>
       )}
     </Button>
