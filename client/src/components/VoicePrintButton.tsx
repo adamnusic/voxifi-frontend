@@ -18,6 +18,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [isMinting, setIsMinting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
+  const [isAudioReady, setIsAudioReady] = useState(false);
   const [nftId, setNftId] = useState<string>("");
   const { toast } = useToast();
   const [docId, setDocId] = useState<string>("");
@@ -36,6 +37,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
         setRecordedAudio(audioBlob);
+        setIsAudioReady(false); // Reset audio ready state
 
         const docId = await createUserRecording();
         setDocId(docId);
@@ -50,7 +52,9 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         audioPlayer = new Audio(URL.createObjectURL(audioBlob));
         audioPlayer.onended = () => setIsPlaying(false);
 
+        // Set audio as ready only after all processing is complete
         await mockMintNFT(audioBlob, docId);
+        setIsAudioReady(true);
       };
 
       mediaRecorder.start();
@@ -87,7 +91,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   };
 
   const togglePlayback = async () => {
-    if (!audioPlayer) return;
+    if (!audioPlayer || !isAudioReady) return;
 
     if (isPlaying) {
       audioPlayer.pause();
@@ -175,7 +179,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         )}
       </Button>
 
-      {recordedAudio && !isRecording && (
+      {recordedAudio && isAudioReady && !isRecording && (
         <Button
           onClick={togglePlayback}
           variant="outline"
