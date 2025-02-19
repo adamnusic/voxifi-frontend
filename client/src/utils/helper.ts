@@ -1,7 +1,23 @@
 import axios from "axios";
 
+const testEndpoint = async () => {
+  try {
+    const response = await axios.get(import.meta.env.VITE_AGENT_SERVER_URL);
+    return response.status === 200;
+  } catch (error) {
+    console.error('TTS service endpoint test failed:', error);
+    return false;
+  }
+};
+
 export const getTtsAudioUrl = async (text: string, audioUrl: string) => {
   try {
+    // Test endpoint first
+    const isEndpointAvailable = await testEndpoint();
+    if (!isEndpointAvailable) {
+      throw new Error('TTS service is currently unavailable. Please try again later.');
+    }
+
     console.log('Making TTS request with:', { text, audioUrl });
     const response = await axios.post(
       `${import.meta.env.VITE_AGENT_SERVER_URL}/llasa-voice-synthesizer`,
