@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Account, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import { Mic, Square } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface VoicePrintButtonProps {
   onRecordingChange: (isRecording: boolean) => void;
@@ -13,6 +14,7 @@ let audioChunks: Blob[] = [];
 export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
+  const { toast } = useToast();
 
   const startRecording = async () => {
     try {
@@ -32,8 +34,18 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       mediaRecorder.start();
       setIsRecording(true);
       onRecordingChange(true);
+
+      toast({
+        title: "Recording started",
+        description: "Speak now to create your voice NFT"
+      });
     } catch (error) {
       console.error('Error starting recording:', error);
+      toast({
+        variant: "destructive",
+        title: "Recording failed",
+        description: "Could not access microphone"
+      });
     }
   };
 
@@ -42,6 +54,10 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       mediaRecorder.stop();
       setIsRecording(false);
       onRecordingChange(false);
+      toast({
+        title: "Recording stopped",
+        description: "Processing your voice NFT..."
+      });
     }
   };
 
@@ -66,11 +82,12 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
       // Create a new account
       const account = new Account();
+      console.log('Account created:', account.accountAddress.toString());
 
       try {
         // Build and submit the transaction
         const transaction = await aptos.transaction.build.simple({
-          sender: account.accountAddress, // Use accountAddress instead of address
+          sender: account.accountAddress,
           data: {
             function: "0x4::collection::create_collection_script",
             typeArguments: [],
@@ -89,9 +106,20 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         const pendingTxn = await aptos.transaction.submit.simple({ transaction: signedTxn });
 
         await aptos.waitForTransaction({ transactionHash: pendingTxn.hash });
+
+        toast({
+          title: "NFT Minted Successfully!",
+          description: `Transaction hash: ${pendingTxn.hash.slice(0, 10)}...`
+        });
+
         console.log('NFT minted successfully! Transaction hash:', pendingTxn.hash);
       } catch (txError) {
         console.error('Transaction failed:', txError);
+        toast({
+          variant: "destructive",
+          title: "Minting Failed",
+          description: "Could not mint NFT on Aptos blockchain"
+        });
         throw new Error('Failed to mint NFT: Transaction error');
       }
 
@@ -99,6 +127,11 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
     } catch (error) {
       console.error('Error minting NFT:', error);
       setIsMinting(false);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to process voice NFT"
+      });
     }
   };
 
