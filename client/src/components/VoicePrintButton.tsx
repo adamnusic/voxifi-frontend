@@ -126,6 +126,12 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
     try {
       setIsProcessingTts(true);
+      toast({
+        title: "Processing",
+        description: "Generating TTS audio...",
+        duration: 2000,
+      });
+
       const ttsAudioUrl = await getTtsAudioUrl(ttsText, audioUrl);
 
       // Update audio player with new TTS audio
@@ -142,12 +148,12 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         description: "TTS audio generated successfully",
         duration: 2000,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("TTS error:", error);
       toast({
         variant: "destructive",
         title: "TTS Error",
-        description: "Failed to generate TTS audio",
+        description: error.message || "Failed to generate TTS audio. Please try again.",
         duration: 4000,
       });
     } finally {
