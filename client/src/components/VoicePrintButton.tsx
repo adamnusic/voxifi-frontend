@@ -72,7 +72,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         const transaction = await aptos.transaction.build.simple({
           sender: account.accountAddress, // Use accountAddress instead of address
           data: {
-            function: "0x1::aptos_token::create_collection_script",
+            function: "0x4::collection::create_collection_script",
             typeArguments: [],
             functionArguments: [
               "VoicePrint", // Collection name
