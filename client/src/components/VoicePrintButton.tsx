@@ -81,7 +81,7 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       const aptos = new Aptos(config);
 
       // Create a new account
-      const account = new Account();
+      const account = Account.generate();
       console.log('Account created:', account.accountAddress.toString());
 
       try {

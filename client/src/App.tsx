@@ -1,5 +1,6 @@
 import { Switch, Route } from "wouter";
 import Visualizer from "@/pages/visualizer";
+import { Toaster } from "@/components/ui/toaster";
 
 function Router() {
   return (
@@ -10,7 +11,12 @@ function Router() {
 }
 
 function App() {
-  return <Router />;
+  return (
+    <>
+      <Router />
+      <Toaster />
+    </>
+  );
 }
 
 export default App;
