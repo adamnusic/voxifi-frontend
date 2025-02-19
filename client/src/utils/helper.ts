@@ -6,7 +6,8 @@ const testEndpoint = async () => {
       ? import.meta.env.VITE_AGENT_SERVER_URL.slice(0, -1)
       : import.meta.env.VITE_AGENT_SERVER_URL;
 
-    const response = await axios.get(baseUrl, {
+    // Try a simple GET request first
+    const response = await axios.get(`${baseUrl}/health`, {
       timeout: 5000,
       headers: {
         'Accept': 'application/json',
@@ -17,6 +18,18 @@ const testEndpoint = async () => {
   } catch (error) {
     console.error('TTS service endpoint test failed:', error);
     return false;
+  }
+};
+
+const retryWithBackoff = async (fn: () => Promise<any>, maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      // Wait for 2^i * 1000 ms before retrying (1s, 2s, 4s)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
   }
 };
 
@@ -34,24 +47,28 @@ export const getTtsAudioUrl = async (text: string, audioUrl: string) => {
       : import.meta.env.VITE_AGENT_SERVER_URL;
 
     console.log('Making TTS request with:', { text, audioUrl });
-    const response = await axios.post(
-      `${baseUrl}/llasa-voice-synthesizer`,
-      {
-        text,
-        audioUrl,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Access-Control-Allow-Origin': '*'
+
+    // Use retry logic for the main request
+    const response = await retryWithBackoff(async () => {
+      return axios.post(
+        `${baseUrl}/llasa-voice-synthesizer`,
+        {
+          text,
+          audioUrl,
         },
-        timeout: 30000, // 30 second timeout
-        validateStatus: function (status) {
-          return status >= 200 && status < 500; // Accept any status code to handle errors properly
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
+          timeout: 30000, // 30 second timeout
+          validateStatus: function (status) {
+            return status >= 200 && status < 500; // Accept any status code to handle errors properly
+          }
         }
-      }
-    );
+      );
+    });
 
     if (!response.data?.url) {
       throw new Error('No URL returned from TTS service');
