@@ -4,9 +4,6 @@ import { Mic, Square, Play, Pause } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { uploadUserRecording } from "@/services/storage/userRecordings.storage";
 import { createUserRecording } from "@/services/db/userRecordings.service";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { getTtsAudioUrl } from "@/utils/helper";
 
 interface VoicePrintButtonProps {
   onRecordingChange: (isRecording: boolean) => void;
@@ -23,9 +20,6 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [nftId, setNftId] = useState<string>("");
-  const [showTtsDialog, setShowTtsDialog] = useState(false);
-  const [ttsText, setTtsText] = useState("");
-  const [isProcessingTts, setIsProcessingTts] = useState(false);
   const { toast } = useToast();
   const [docId, setDocId] = useState<string>("");
   const [audioUrl, setAudioUrl] = useState<string>("");
@@ -61,9 +55,6 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
         // Set audio as ready only after all processing is complete
         await mockMintNFT(audioBlob, docId);
         setIsAudioReady(true);
-
-        // Show TTS dialog after recording is complete
-        setShowTtsDialog(true);
       };
 
       mediaRecorder.start();
@@ -118,46 +109,6 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
           duration: 4000,
         });
       }
-    }
-  };
-
-  const handleTtsSubmit = async () => {
-    if (!ttsText.trim() || !audioUrl) return;
-
-    try {
-      setIsProcessingTts(true);
-      toast({
-        title: "Processing",
-        description: "Generating TTS audio...",
-        duration: 2000,
-      });
-
-      const ttsAudioUrl = await getTtsAudioUrl(ttsText, audioUrl);
-
-      // Update audio player with new TTS audio
-      if (audioPlayer) {
-        audioPlayer.pause();
-      }
-      audioPlayer = new Audio(ttsAudioUrl);
-      audioPlayer.onended = () => setIsPlaying(false);
-      setIsAudioReady(true);
-      setShowTtsDialog(false);
-
-      toast({
-        title: "Success",
-        description: "TTS audio generated successfully",
-        duration: 2000,
-      });
-    } catch (error: any) {
-      console.error("TTS error:", error);
-      toast({
-        variant: "destructive",
-        title: "TTS Error",
-        description: error.message || "Failed to generate TTS audio. Please try again.",
-        duration: 4000,
-      });
-    } finally {
-      setIsProcessingTts(false);
     }
   };
 
@@ -248,30 +199,6 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
           )}
         </Button>
       )}
-
-      <Dialog open={showTtsDialog} onOpenChange={setShowTtsDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Generate TTS Audio</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Input
-              placeholder="Enter text to convert to speech..."
-              value={ttsText}
-              onChange={(e) => setTtsText(e.target.value)}
-              disabled={isProcessingTts}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={handleTtsSubmit}
-              disabled={!ttsText.trim() || isProcessingTts}
-            >
-              {isProcessingTts ? "Processing..." : "Generate TTS"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
