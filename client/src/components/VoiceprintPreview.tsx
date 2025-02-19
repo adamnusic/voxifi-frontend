@@ -13,83 +13,108 @@ interface VoiceprintPreviewProps {
 
 export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: VoiceprintPreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number>();
   const audioContextRef = useRef<AudioContext>();
   const analyzerRef = useRef<AnalyserNode>();
+  const sourceRef = useRef<MediaElementAudioSourceNode>();
   const { toast } = useToast();
   const hueRef = useRef(0);
 
+  // Initialize audio context and analyzer
+  const initializeAudioContext = async () => {
+    if (!audioRef.current || !canvasRef.current || !audioBlob) return;
+
+    try {
+      // Create new AudioContext if it doesn't exist
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      // Create analyzer node
+      const analyzer = audioContextRef.current.createAnalyser();
+      analyzer.fftSize = 2048;
+      analyzer.smoothingTimeConstant = 0.85;
+      analyzerRef.current = analyzer;
+
+      // Create source node
+      const source = audioContextRef.current.createMediaElementSource(audioRef.current);
+      sourceRef.current = source;
+
+      // Connect nodes
+      source.connect(analyzer);
+      analyzer.connect(audioContextRef.current.destination);
+
+      setIsInitialized(true);
+      console.log('Audio context initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize audio context:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to initialize audio visualization",
+      });
+    }
+  };
+
+  // Set up audio element when component mounts or audioBlob changes
   useEffect(() => {
     if (!audioBlob || !isOpen) return;
 
-    // Create audio element and set source
+    // Create audio element
     const audio = new Audio();
     const audioUrl = URL.createObjectURL(audioBlob);
     audio.src = audioUrl;
     audioRef.current = audio;
 
-    // Handle audio end
-    audio.addEventListener('ended', () => {
-      setIsPlaying(false);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    });
+    // Initialize audio context after audio element is created
+    initializeAudioContext();
 
+    // Clean up function
     return () => {
-      // Cleanup
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
       }
-      URL.revokeObjectURL(audioUrl);
-      if (audioContextRef.current?.state !== 'closed') {
-        audioContextRef.current?.close();
+
+      if (sourceRef.current) {
+        sourceRef.current.disconnect();
       }
+
+      if (analyzerRef.current) {
+        analyzerRef.current.disconnect();
+      }
+
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+
+      URL.revokeObjectURL(audioUrl);
+      setIsInitialized(false);
       setIsPlaying(false);
     };
   }, [audioBlob, isOpen]);
 
-  const setupAudioContext = async () => {
+  // Handle audio end
+  useEffect(() => {
     if (!audioRef.current) return;
 
-    try {
-      // Create audio context if it doesn't exist
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
+    const handleEnded = () => {
+      setIsPlaying(false);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
+    };
 
-      // Resume context if suspended
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-
-      // Create analyzer if it doesn't exist
-      if (!analyzerRef.current) {
-        const analyzer = audioContextRef.current.createAnalyser();
-        analyzer.fftSize = 2048;
-        analyzer.smoothingTimeConstant = 0.85;
-        analyzerRef.current = analyzer;
-
-        // Connect audio element to analyzer and destination
-        const source = audioContextRef.current.createMediaElementSource(audioRef.current);
-        source.connect(analyzer);
-        analyzer.connect(audioContextRef.current.destination);
-      }
-    } catch (error) {
-      console.error('Audio setup error:', error);
-      toast({
-        variant: "destructive",
-        title: "Audio Error",
-        description: "Failed to setup audio playback",
-      });
-    }
-  };
+    audioRef.current.addEventListener('ended', handleEnded);
+    return () => audioRef.current?.removeEventListener('ended', handleEnded);
+  }, []);
 
   const drawVisualization = () => {
     if (!canvasRef.current || !analyzerRef.current) return;
@@ -165,11 +190,11 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   };
 
   const togglePlayback = async () => {
-    if (!audioRef.current) {
+    if (!audioRef.current || !isInitialized) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Audio not available",
+        description: "Audio visualization not ready. Please try again.",
       });
       return;
     }
@@ -181,7 +206,9 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
           cancelAnimationFrame(animationFrameRef.current);
         }
       } else {
-        await setupAudioContext();
+        if (audioContextRef.current?.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
         await audioRef.current.play();
         drawVisualization();
       }
@@ -216,7 +243,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
             ref={canvasRef}
             width={640}
             height={200}
-            className="w-full rounded-lg bg-background border"
+            className="w-full rounded-lg bg-black border"
           />
 
           <div className="mt-4 flex justify-center">
@@ -225,6 +252,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
               variant="outline"
               size="icon"
               className="w-12 h-12 rounded-full"
+              disabled={!isInitialized}
             >
               {isPlaying ? (
                 <Pause className="h-6 w-6" />
