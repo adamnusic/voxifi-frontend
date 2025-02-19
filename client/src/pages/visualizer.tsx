@@ -20,101 +20,56 @@ export default function Visualizer() {
   const [needsMicPermission, setNeedsMicPermission] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  const checkWebXRSupport = async () => {
-    if (!navigator.xr) {
-      throw new Error('WebXR not supported in this browser. Please use a WebXR-compatible browser.');
-    }
-    try {
-      const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
-      if (!isSupported) {
-        throw new Error('VR not supported on this device/browser.');
+  const startVisualization = () => {
+    console.log('Start visualization clicked');
+    if (!containerRef.current || isInitializing) return;
+
+    setIsInitializing(true);
+    setError('');
+    setIsReady(false);
+
+    const initialize = async () => {
+      try {
+        // Check WebXR support
+        if (!navigator.xr) {
+          throw new Error('WebXR not supported in this browser.');
+        }
+
+        // Request microphone access
+        const analyzer = await setupAudioAnalyzer();
+
+        // Initialize scene
+        if (!containerRef.current) return;
+        sceneRef.current = initScene(containerRef.current);
+
+        // Setup animation loop
+        const animate = () => {
+          if (!sceneRef.current || !analyzer) return;
+
+          const audioData = analyzer.getAudioData();
+          updateVisualization(sceneRef.current.group, audioData);
+
+          frameRef.current = requestAnimationFrame(animate);
+        };
+
+        animate();
+        setIsReady(true);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to start visualization';
+        console.error('Visualization error:', message);
+        setError(message);
+        if (message.includes('denied')) {
+          setNeedsMicPermission(true);
+        }
+      } finally {
+        setIsInitializing(false);
       }
-    } catch (err) {
-      throw new Error('VR support check failed. Please ensure your browser supports WebXR.');
-    }
+    };
+
+    initialize();
   };
 
-  const initAudio = async () => {
-    try {
-      setError('');
-      setNeedsMicPermission(false);
-      const analyzer = await setupAudioAnalyzer();
-      return analyzer;
-    } catch (err) {
-      if (err instanceof Error && err.message.includes('denied')) {
-        setNeedsMicPermission(true);
-        throw new Error('Microphone access is required for audio visualization. Please grant permission and try again.');
-      }
-      throw err;
-    }
-  };
-
-  const handleStartClick = async () => {
-    console.log('Start button clicked');
-    await initializeVisualization();
-  };
-
-  const initializeVisualization = async () => {
-    if (!containerRef.current) return;
-    console.log('Starting visualization initialization...');
-
-    try {
-      setIsInitializing(true);
-      setError('');
-      setIsReady(false);
-
-      // First check WebXR support
-      console.log('Checking WebXR support...');
-      await checkWebXRSupport();
-
-      // Then initialize audio
-      console.log('Requesting audio permissions...');
-      const analyzer = await initAudio();
-
-      // Only initialize scene after we have audio permission
-      console.log('Initializing Three.js scene...');
-      sceneRef.current = initScene(containerRef.current);
-
-      // Animation loop
-      const animate = () => {
-        if (!sceneRef.current || !analyzer) return;
-
-        const audioData = analyzer.getAudioData();
-        updateVisualization(sceneRef.current.group, audioData);
-
-        sceneRef.current.renderer.render(
-          sceneRef.current.scene,
-          sceneRef.current.camera
-        );
-        frameRef.current = requestAnimationFrame(animate);
-      };
-
-      // Start animation loop
-      animate();
-      console.log('Animation loop started');
-
-      // Handle XR session state
-      sceneRef.current.renderer.xr.addEventListener('sessionstart', () => {
-        console.log('VR session started');
-      });
-
-      sceneRef.current.renderer.xr.addEventListener('sessionend', () => {
-        console.log('VR session ended');
-      });
-
-      setIsReady(true);
-      setIsInitializing(false);
-      console.log('Visualization initialization complete');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
-      console.error('Initialization error:', err);
-      setError(errorMessage);
-      setIsInitializing(false);
-      setIsReady(false);
-    }
-  };
-
-  // Cleanup on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
       if (frameRef.current) {
@@ -151,8 +106,9 @@ export default function Visualizer() {
                 </>
               )}
               <Button 
-                onClick={handleStartClick}
+                onClick={startVisualization}
                 className="w-full"
+                type="button"
               >
                 Try Again
               </Button>
@@ -175,8 +131,9 @@ export default function Visualizer() {
                 Click the button below to start. You'll be prompted for microphone access.
               </p>
               <Button 
-                onClick={handleStartClick}
+                onClick={startVisualization}
                 className="w-full"
+                type="button"
                 disabled={isInitializing}
               >
                 {isInitializing ? 'Initializing...' : 'Start Visualization'}
