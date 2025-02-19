@@ -51,6 +51,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      setIsPlaying(false);
     };
   }, [audioBlob, isOpen]);
 
@@ -104,46 +105,44 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     analyzerRef.current.getByteTimeDomainData(timeData);
 
     // Clear canvas with fade effect
-    ctx.fillStyle = 'rgba(23, 23, 23, 0.2)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Calculate average frequency for color modulation
-    const average = frequencyData.reduce((acc, val) => acc + val, 0) / frequencyData.length;
-    hueRef.current = (hueRef.current + 0.5) % 360;
-
     // Draw frequency bars
-    const barWidth = canvas.width / (frequencyData.length / 2);
-    const heightScale = canvas.height / 255;
+    const barWidth = (canvas.width / frequencyData.length) * 2.5;
+    const heightScale = canvas.height / 256;
 
     for (let i = 0; i < frequencyData.length / 2; i++) {
-      const barHeight = frequencyData[i] * heightScale;
-
-      // Dynamic color based on frequency and time
-      const hue = (hueRef.current + (i / frequencyData.length) * 180) % 360;
-      const saturation = 80 + (average / 255) * 20;
-      const lightness = 40 + (frequencyData[i] / 255) * 30;
+      const freq = frequencyData[i];
+      const hue = (hueRef.current + (i / frequencyData.length) * 360) % 360;
+      const saturation = 70 + (freq / 256) * 30;
+      const lightness = 40 + (freq / 256) * 20;
 
       ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 
-      // Draw mirrored bars
-      const x = canvas.width / 2 + i * barWidth;
-      const mirrorX = canvas.width / 2 - (i + 1) * barWidth;
+      // Calculate bar height with some minimum height
+      const barHeight = Math.max(freq * heightScale, 2);
 
-      ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-      ctx.fillRect(mirrorX, canvas.height - barHeight, barWidth - 1, barHeight);
+      // Draw mirrored bars
+      const x1 = canvas.width / 2 + i * barWidth;
+      const x2 = canvas.width / 2 - (i + 1) * barWidth;
+
+      ctx.fillRect(x1, canvas.height - barHeight, barWidth - 1, barHeight);
+      ctx.fillRect(x2, canvas.height - barHeight, barWidth - 1, barHeight);
     }
 
     // Draw waveform
     ctx.beginPath();
-    ctx.strokeStyle = `hsla(${hueRef.current}, 80%, 60%, 0.5)`;
+    ctx.strokeStyle = `hsla(${hueRef.current}, 80%, 60%, 0.8)`;
     ctx.lineWidth = 2;
 
     const sliceWidth = canvas.width / timeData.length;
     let x = 0;
 
+    ctx.moveTo(0, canvas.height / 2);
     for (let i = 0; i < timeData.length; i++) {
       const v = timeData[i] / 128.0;
-      const y = (v * canvas.height) / 2;
+      const y = v * canvas.height / 2;
 
       if (i === 0) {
         ctx.moveTo(x, y);
@@ -154,7 +153,11 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
       x += sliceWidth;
     }
 
+    ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
+
+    // Update hue for next frame
+    hueRef.current = (hueRef.current + 1) % 360;
 
     if (isPlaying) {
       animationFrameRef.current = requestAnimationFrame(drawVisualization);
