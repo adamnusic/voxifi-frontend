@@ -52,6 +52,7 @@ export default function Visualizer() {
 
   const initializeVisualization = async () => {
     if (!containerRef.current) return;
+    console.log('Starting visualization initialization...');
 
     try {
       setIsInitializing(true);
@@ -59,12 +60,15 @@ export default function Visualizer() {
       setIsReady(false);
 
       // First check WebXR support
+      console.log('Checking WebXR support...');
       await checkWebXRSupport();
 
       // Then initialize audio
+      console.log('Requesting audio permissions...');
       const analyzer = await initAudio();
 
       // Only initialize scene after we have audio permission
+      console.log('Initializing Three.js scene...');
       sceneRef.current = initScene(containerRef.current);
 
       // Animation loop
@@ -83,6 +87,7 @@ export default function Visualizer() {
 
       // Start animation loop
       animate();
+      console.log('Animation loop started');
 
       // Handle XR session state
       sceneRef.current.renderer.xr.addEventListener('sessionstart', () => {
@@ -95,11 +100,13 @@ export default function Visualizer() {
 
       setIsReady(true);
       setIsInitializing(false);
+      console.log('Visualization initialization complete');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      console.error('Initialization error:', err);
       setError(errorMessage);
       setIsInitializing(false);
-      console.error('Initialization error:', err);
+      setIsReady(false);
     }
   };
 
@@ -139,7 +146,10 @@ export default function Visualizer() {
                 </>
               )}
               <Button 
-                onClick={initializeVisualization}
+                onClick={() => {
+                  console.log('Retry button clicked');
+                  initializeVisualization();
+                }}
                 className="w-full"
               >
                 Try Again
@@ -158,12 +168,15 @@ export default function Visualizer() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center gap-4">
               <Headphones className="h-12 w-12 text-primary animate-pulse" />
-              <h1 className="text-2xl font-bold">Starting Audio Visualizer</h1>
+              <h1 className="text-2xl font-bold">Start Audio Visualization</h1>
               <p className="text-sm text-muted-foreground">
                 Click the button below to start. You'll be prompted for microphone access.
               </p>
               <Button 
-                onClick={initializeVisualization}
+                onClick={() => {
+                  console.log('Start button clicked');
+                  initializeVisualization();
+                }}
                 className="w-full"
                 disabled={isInitializing}
               >
