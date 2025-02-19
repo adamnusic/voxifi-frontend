@@ -71,7 +71,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
       // Create analyzer if it doesn't exist
       if (!analyzerRef.current) {
         const analyzer = audioContextRef.current.createAnalyser();
-        analyzer.fftSize = 2048;
+        analyzer.fftSize = 512; // Reduced for better performance
         analyzer.smoothingTimeConstant = 0.85;
         analyzerRef.current = analyzer;
 
@@ -99,62 +99,50 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
 
     // Get frequency and time domain data
     const frequencyData = new Uint8Array(analyzerRef.current.frequencyBinCount);
-    const timeData = new Uint8Array(analyzerRef.current.frequencyBinCount);
     analyzerRef.current.getByteFrequencyData(frequencyData);
-    analyzerRef.current.getByteTimeDomainData(timeData);
 
-    // Clear canvas with fade effect
-    ctx.fillStyle = 'rgba(23, 23, 23, 0.2)';
+    // Clear canvas with slight fade effect
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Calculate average frequency for color modulation
+    // Calculate average frequency for intensity
     const average = frequencyData.reduce((acc, val) => acc + val, 0) / frequencyData.length;
+
+    // Update hue for color cycling
     hueRef.current = (hueRef.current + 0.5) % 360;
 
     // Draw frequency bars
-    const barWidth = canvas.width / (frequencyData.length / 2);
-    const heightScale = canvas.height / 255;
+    const barWidth = (canvas.width / frequencyData.length) * 2.5;
+    const heightScale = canvas.height / 256;
 
-    for (let i = 0; i < frequencyData.length / 2; i++) {
+    for (let i = 0; i < frequencyData.length; i++) {
       const barHeight = frequencyData[i] * heightScale;
 
-      // Dynamic color based on frequency and time
+      // Dynamic color based on frequency and intensity
       const hue = (hueRef.current + (i / frequencyData.length) * 180) % 360;
-      const saturation = 80 + (average / 255) * 20;
-      const lightness = 40 + (frequencyData[i] / 255) * 30;
+      const saturation = 80 + (average / 256) * 20;
+      const lightness = 40 + (frequencyData[i] / 256) * 30;
 
       ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 
-      // Draw mirrored bars
+      // Mirror bars from center
       const x = canvas.width / 2 + i * barWidth;
       const mirrorX = canvas.width / 2 - (i + 1) * barWidth;
 
-      ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-      ctx.fillRect(mirrorX, canvas.height - barHeight, barWidth - 1, barHeight);
+      // Draw bars with rounded tops
+      ctx.beginPath();
+      ctx.roundRect(x, canvas.height - barHeight, barWidth - 1, barHeight, [2, 2, 0, 0]);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(mirrorX, canvas.height - barHeight, barWidth - 1, barHeight, [2, 2, 0, 0]);
+      ctx.fill();
     }
 
-    // Draw waveform
-    ctx.beginPath();
-    ctx.strokeStyle = `hsla(${hueRef.current}, 80%, 60%, 0.5)`;
-    ctx.lineWidth = 2;
-
-    const sliceWidth = canvas.width / timeData.length;
-    let x = 0;
-
-    for (let i = 0; i < timeData.length; i++) {
-      const v = timeData[i] / 128.0;
-      const y = (v * canvas.height) / 2;
-
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-
-      x += sliceWidth;
-    }
-
-    ctx.stroke();
+    // Add glow effect
+    ctx.fillStyle = `hsla(${hueRef.current}, 80%, 60%, 0.1)`;
+    ctx.filter = 'blur(8px)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.filter = 'none';
 
     if (isPlaying) {
       animationFrameRef.current = requestAnimationFrame(drawVisualization);
@@ -213,7 +201,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
             ref={canvasRef}
             width={640}
             height={200}
-            className="w-full rounded-lg bg-background border"
+            className="w-full rounded-lg bg-black border"
           />
 
           <div className="mt-4 flex justify-center">
