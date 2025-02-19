@@ -123,40 +123,49 @@ export async function initScene(container: HTMLElement) {
       .reduce((sum, val) => sum + val, 0) / audioData.frequencies.length;
     const normalizedAvg = avgFrequency / 255;
 
-    // Update center piece vertices based on audio
+    // Update center piece vertices based on audio with increased sensitivity
     const positions = centerGeometry.attributes.position.array;
     for (let i = 0; i < positions.length; i += 3) {
       const originalX = originalPositions[i];
       const originalY = originalPositions[i + 1];
       const originalZ = originalPositions[i + 2];
 
-      // Create dynamic distortion based on audio and time
-      const distortion = 0.3 * normalizedAvg;
-      const noise = Math.sin(time * 2 + i * 0.1) * distortion;
+      // Increased distortion based on audio
+      const distortion = 0.8 * normalizedAvg; // Increased from 0.3 to 0.8
+      const frequencyIndex = Math.floor((i / positions.length) * audioData.frequencies.length);
+      const frequencyValue = audioData.frequencies[frequencyIndex] / 255;
 
-      positions[i] = originalX * (1 + noise);
-      positions[i + 1] = originalY * (1 + noise);
-      positions[i + 2] = originalZ * (1 + noise);
+      // Create more dynamic vertex manipulation
+      const noise = (
+        Math.sin(time * 3 + i * 0.2) * distortion +
+        Math.cos(time * 2 + i * 0.3) * distortion * frequencyValue
+      );
+
+      // Apply stronger deformation
+      positions[i] = originalX * (1 + noise * 1.5);
+      positions[i + 1] = originalY * (1 + noise * 1.5);
+      positions[i + 2] = originalZ * (1 + noise * 1.5);
     }
     centerGeometry.attributes.position.needsUpdate = true;
 
-    // Rotate and scale center piece based on audio
-    centerPiece.rotation.x += 0.01 + audioData.volume * 0.05;
-    centerPiece.rotation.y += 0.01 + audioData.volume * 0.05;
+    // More dramatic rotation based on audio
+    centerPiece.rotation.x += 0.02 + audioData.volume * 0.2;
+    centerPiece.rotation.y += 0.02 + audioData.volume * 0.2;
+    centerPiece.rotation.z += audioData.volume * 0.1;
 
-    // Pulsating scale based on volume
-    const baseScale = 1 + audioData.volume;
-    const pulseScale = baseScale + Math.sin(time * 4) * audioData.volume * 0.2;
+    // More pronounced pulsating scale based on volume
+    const baseScale = 1 + audioData.volume * 1.5;
+    const pulseScale = baseScale + Math.sin(time * 6) * audioData.volume * 0.5;
     centerPiece.scale.set(pulseScale, pulseScale, pulseScale);
 
-    // Update center piece material
+    // More dramatic material updates
     if (centerPiece.material instanceof THREE.MeshPhongMaterial) {
-      const hue = (time * 0.1) % 1;
-      const saturation = 0.5 + audioData.volume * 0.5;
-      const lightness = 0.4 + audioData.volume * 0.3;
+      const hue = (time * 0.2) % 1;
+      const saturation = 0.7 + audioData.volume * 0.3;
+      const lightness = 0.3 + audioData.volume * 0.5;
       centerPiece.material.color.setHSL(hue, saturation, lightness);
-      centerPiece.material.emissive.setHSL(hue, saturation * 0.5, lightness * 0.3);
-      centerPiece.material.opacity = 0.6 + audioData.volume * 0.4;
+      centerPiece.material.emissive.setHSL(hue, saturation * 0.7, lightness * 0.4);
+      centerPiece.material.opacity = 0.4 + audioData.volume * 0.6;
     }
 
     // Animate lights
