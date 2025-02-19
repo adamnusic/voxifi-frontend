@@ -36,14 +36,16 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
       toast({
         title: "Recording started",
-        description: "Speak now to create your Voiceprint NFT"
+        description: "Speak now to create your Voiceprint NFT",
+        duration: 2000,
       });
     } catch (error) {
       console.error('Error starting recording:', error);
       toast({
         variant: "destructive",
         title: "Recording failed",
-        description: "Could not access microphone"
+        description: "Could not access microphone",
+        duration: 4000,
       });
     }
   };
@@ -55,7 +57,8 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       onRecordingChange(false);
       toast({
         title: "Recording stopped",
-        description: "Processing your Voiceprint NFT..."
+        description: "Processing your Voiceprint NFT...",
+        duration: 2000,
       });
     }
   };
@@ -69,7 +72,8 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
       toast({
         title: "Creating Voiceprint NFT",
-        description: "Generating unique audio signature..."
+        description: "Generating unique audio signature...",
+        duration: 2000,
       });
 
       // Simulate processing delay
@@ -77,7 +81,8 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
 
       toast({
         title: "Success!",
-        description: "Your Voiceprint NFT has been created! ID: VP-" + Math.random().toString(36).substr(2, 9)
+        description: "Your Voiceprint NFT has been created! ID: VP-" + Math.random().toString(36).substr(2, 9),
+        duration: 4000,
       });
 
       setIsMinting(false);
@@ -87,7 +92,8 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create Voiceprint NFT. Please try again."
+        description: "Failed to create Voiceprint NFT. Please try again.",
+        duration: 4000,
       });
     }
   };
