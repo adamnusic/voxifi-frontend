@@ -25,7 +25,6 @@ export default function Visualizer() {
       throw new Error('WebXR not supported in this browser. Please use a WebXR-compatible browser.');
     }
     try {
-      // Check if 'immersive-vr' is supported
       const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
       if (!isSupported) {
         throw new Error('VR not supported on this device/browser.');
@@ -109,17 +108,6 @@ export default function Visualizer() {
       setIsReady(false);
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (frameRef.current) {
-        cancelAnimationFrame(frameRef.current);
-      }
-      if (sceneRef.current?.renderer) {
-        sceneRef.current.renderer.dispose();
-      }
-    };
-  }, []);
 
   if (error || needsMicPermission) {
     return (
