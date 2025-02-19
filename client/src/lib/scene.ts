@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import { setupAudioAnalyzer, type AudioData } from './audio';
 
-export function initScene(container: HTMLElement) {
+export async function initScene(container: HTMLElement) {
   // Scene setup
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
@@ -32,7 +33,7 @@ export function initScene(container: HTMLElement) {
   // Add VR button
   document.body.appendChild(VRButton.createButton(renderer));
 
-  // Create a simple visualization
+  // Create a reactive visualization
   const geometry = new THREE.TorusKnotGeometry(1, 0.3, 100, 16);
   const material = new THREE.MeshPhongMaterial({ 
     color: 0x00ff00,
@@ -49,10 +50,30 @@ export function initScene(container: HTMLElement) {
   directionalLight.position.set(5, 5, 5);
   scene.add(directionalLight);
 
+  // Initialize audio analyzer (real or fallback)
+  const analyzer = await setupAudioAnalyzer();
+
   // Animation loop
   function animate() {
-    torusKnot.rotation.x += 0.01;
-    torusKnot.rotation.y += 0.01;
+    const audioData = analyzer.getAudioData();
+
+    // Update torus knot based on audio
+    if (torusKnot) {
+      // Scale based on volume
+      const scale = 1 + audioData.volume * 2;
+      torusKnot.scale.set(scale, scale, scale);
+
+      // Rotate based on frequencies
+      torusKnot.rotation.x += 0.01 + audioData.volume * 0.1;
+      torusKnot.rotation.y += 0.01 + audioData.volume * 0.1;
+
+      // Change color based on dominant frequency
+      const dominantFreq = Math.max(...Array.from(audioData.frequencies));
+      const hue = (dominantFreq / 255) * 0.3 + 0.2;  // Keep in green-blue range
+      if (material instanceof THREE.MeshPhongMaterial) {
+        material.color.setHSL(hue, 1, 0.5);
+      }
+    }
   }
 
   // Start render loop

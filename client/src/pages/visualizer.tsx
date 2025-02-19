@@ -7,7 +7,9 @@ export default function Visualizer() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    initScene(containerRef.current);
+
+    // Initialize scene and audio visualization
+    initScene(containerRef.current).catch(console.error);
   }, []);
 
   return (
