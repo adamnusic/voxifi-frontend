@@ -104,8 +104,6 @@ export default function Visualizer() {
   };
 
   useEffect(() => {
-    initializeVisualization();
-
     return () => {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
@@ -153,7 +151,7 @@ export default function Visualizer() {
     );
   }
 
-  if (!isReady || isInitializing) {
+  if (!isReady) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <Card className="w-full max-w-md mx-4">
@@ -162,7 +160,7 @@ export default function Visualizer() {
               <Headphones className="h-12 w-12 text-primary animate-pulse" />
               <h1 className="text-2xl font-bold">Starting Audio Visualizer</h1>
               <p className="text-sm text-muted-foreground">
-                Click "Allow" when prompted for microphone access to begin the experience.
+                Click the button below to start. You'll be prompted for microphone access.
               </p>
               <Button 
                 onClick={initializeVisualization}
