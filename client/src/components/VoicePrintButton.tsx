@@ -4,6 +4,7 @@ import { Mic, Square, Play, Pause } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { uploadUserRecording } from "@/services/storage/userRecordings.storage";
 import { createUserRecording } from "@/services/db/userRecordings.service";
+import axios from "axios";
 
 interface VoicePrintButtonProps {
   onRecordingChange: (isRecording: boolean) => void;
@@ -19,10 +20,10 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const [isAudioReady, setIsAudioReady] = useState(false);
-  const [nftId, setNftId] = useState<string>("");
   const { toast } = useToast();
   const [docId, setDocId] = useState<string>("");
   const [audioUrl, setAudioUrl] = useState<string>("");
+  const [mintTxUrl, setMintTxUrl] = useState<string>("");
 
   const startRecording = async () => {
     try {
@@ -116,20 +117,20 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
     try {
       setIsMinting(true);
 
-      // Simulate processing delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
       toast({
         title: "Creating Voiceprint NFT",
         description: "Generating unique audio signature...",
         duration: 2000,
       });
-
       // Simulate processing delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // await new Promise((resolve) => setTimeout(resolve, 2000));
+      const response = await axios.post(
+        `${import.meta.env.VITE_AGENT_SERVER_URL}/deploy-digital-asset-aptos`,
+      );
+      const url = await response.data.url;
+      setMintTxUrl(url);
 
       const generatedId = docId;
-      setNftId(generatedId);
 
       toast({
         title: "Success!",
@@ -198,6 +199,39 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
             </>
           )}
         </Button>
+      )}
+      {mintTxUrl && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg max-w-md">
+            <h3 className="text-lg font-semibold mb-2">
+              Digital Asset Successfully Created!
+            </h3>
+            <p className="mb-4">
+              Your Voiceprint NFT has been deployed to the blockchain.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href={mintTxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                View NFT Transaction
+              </a>
+              <a
+                href="https://voxifi-aptos-agent.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lg font-medium"
+              >
+                <span className="bg-yellow-200 px-4 py-2 rounded hover:bg-yellow-300 transition-colors inline-block w-full text-center">
+                  You can now create a Prediction Market using the Aptos
+                  Agentkit! →
+                </span>
+              </a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
