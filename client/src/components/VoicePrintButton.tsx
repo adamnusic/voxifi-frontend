@@ -64,28 +64,37 @@ export function VoicePrintButton({ onRecordingChange }: VoicePrintButtonProps) {
       const config = new AptosConfig({ network: Network.TESTNET });
       const aptos = new Aptos(config);
 
-      // Create a new account or get existing one
-      // Note: In a real app, you'd want to integrate with a wallet
-      const account = Account.generate();
+      // Create a new account
+      const account = new Account();
 
-      // TODO: Replace with actual collection and token creation
-      // This is a placeholder for the NFT minting transaction
-      const transaction = await aptos.transaction.build.simple({
-        sender: account.address,
-        data: {
-          function: "0x1::aptos_token::create_token_script",
-          typeArguments: [],
-          functionArguments: [
-            "VoicePrint", // Collection name
-            "Voice NFT", // Token name
-            "A unique audio fingerprint", // Description
-            1, // Supply: 1 for NFT
-            base64Data, // URI: using base64 audio data
-          ],
-        },
-      });
+      try {
+        // Build and submit the transaction
+        const transaction = await aptos.transaction.build.simple({
+          sender: account.accountAddress, // Use accountAddress instead of address
+          data: {
+            function: "0x1::aptos_token::create_collection_script",
+            typeArguments: [],
+            functionArguments: [
+              "VoicePrint", // Collection name
+              "Audio NFT Collection", // Description
+              "https://voiceprint.example.com", // Collection URI
+              "unlimited", // Maximum supply
+              true, // Allow mutation
+            ],
+          },
+        });
 
-      console.log('NFT minted successfully!');
+        // Sign and submit transaction
+        const signedTxn = await aptos.transaction.sign({ signer: account, transaction });
+        const pendingTxn = await aptos.transaction.submit.simple({ transaction: signedTxn });
+
+        await aptos.waitForTransaction({ transactionHash: pendingTxn.hash });
+        console.log('NFT minted successfully! Transaction hash:', pendingTxn.hash);
+      } catch (txError) {
+        console.error('Transaction failed:', txError);
+        throw new Error('Failed to mint NFT: Transaction error');
+      }
+
       setIsMinting(false);
     } catch (error) {
       console.error('Error minting NFT:', error);
