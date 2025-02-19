@@ -1,46 +1,104 @@
-import { useEffect, useRef } from 'react';
-import { setupScene } from '@/lib/scene';
-import { setupAudio } from '@/lib/audio';
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { initScene, updateVisualization } from '@/lib/scene';
+import { setupAudioAnalyzer } from '@/lib/audio';
+import ErrorMessage from '@/components/ErrorMessage';
+import { Card, CardContent } from "@/components/ui/card";
+import { Mic } from "lucide-react";
 
 export default function Visualizer() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<{ cleanup: () => void }>();
-  const audioRef = useRef<{ cleanup: () => void }>();
+  const sceneRef = useRef<{
+    scene: THREE.Scene;
+    camera: THREE.PerspectiveCamera;
+    renderer: THREE.WebGLRenderer;
+    visualization: THREE.Object3D;
+  }>();
+  const frameRef = useRef<number>();
+  const [error, setError] = useState<string>('');
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const init = async () => {
       try {
-        // Initialize Three.js scene
-        const scene = await setupScene(containerRef.current!);
-        sceneRef.current = scene;
+        setIsInitializing(true);
 
-        // Initialize audio processing
-        const audio = await setupAudio((audioData: Float32Array) => {
-          // Pass audio data to scene for visualization
-          scene.updateVisualization(audioData);
-        });
-        audioRef.current = audio;
+        // Initialize Three.js scene first
+        sceneRef.current = await initScene(containerRef.current);
 
-      } catch (error) {
-        console.error('Failed to initialize:', error);
+        // Then setup audio analyzer
+        const analyzer = await setupAudioAnalyzer();
+
+        // Start animation loop once everything is ready
+        const animate = () => {
+          if (!sceneRef.current || !analyzer) return;
+
+          const { scene, camera, renderer, visualization } = sceneRef.current;
+
+          // Update visualization based on audio data
+          const audioData = analyzer.getAudioData();
+          updateVisualization(visualization, audioData);
+
+          renderer.render(scene, camera);
+          frameRef.current = requestAnimationFrame(animate);
+        };
+
+        animate();
+        setIsInitializing(false);
+      } catch (err) {
+        const errorMessage = (err as Error).message;
+        setError(errorMessage);
+        setIsInitializing(false);
+        console.error('Initialization error:', err);
       }
     };
 
     init();
 
     return () => {
-      sceneRef.current?.cleanup();
-      audioRef.current?.cleanup();
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+      }
+      if (sceneRef.current?.renderer) {
+        sceneRef.current.renderer.dispose();
+      }
     };
   }, []);
+
+  if (error) {
+    return <ErrorMessage message={error} />;
+  }
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center gap-4">
+              <Mic className="h-12 w-12 text-primary animate-pulse" />
+              <h1 className="text-2xl font-bold">Initializing Visualizer</h1>
+              <p className="text-sm text-muted-foreground">
+                Please allow microphone access when prompted to experience the audio visualization.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div 
       ref={containerRef} 
-      className="w-full h-screen bg-background"
-      style={{ touchAction: 'none' }}
+      style={{ 
+        width: '100vw', 
+        height: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0
+      }}
     />
   );
 }
