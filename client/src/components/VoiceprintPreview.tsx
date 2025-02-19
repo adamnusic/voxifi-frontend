@@ -16,32 +16,36 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
+  const audioContextRef = useRef<AudioContext>();
   const analyzerRef = useRef<{ getAudioData: () => AudioData } | null>(null);
 
   useEffect(() => {
-    if (!audioBlob) return;
+    if (!audioBlob || !isOpen) return;
 
     // Create audio element with blob URL
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    // Create AudioContext and analyzer
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaElementSource(audio);
+    audioContextRef.current = audioContext;
+
+    // Connect audio to context
+    source.connect(audioContext.destination);
+
+    // Set up audio analyzer
+    setupAudioAnalyzer().then((analyzer) => {
+      analyzerRef.current = analyzer;
+    });
+
     audio.onended = () => {
       setIsPlaying(false);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-    audioRef.current = audio;
-
-    // Set up audio analyzer as soon as dialog opens
-    if (isOpen) {
-      setupAudioAnalyzer().then((analyzer) => {
-        analyzerRef.current = analyzer;
-        // Start visualization immediately if needed
-        if (isPlaying) {
-          drawVisualization();
-        }
-      });
-    }
 
     return () => {
       URL.revokeObjectURL(audioUrl);
@@ -49,6 +53,9 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
         cancelAnimationFrame(animationFrameRef.current);
       }
       audio.pause();
+      if (audioContextRef.current?.state !== 'closed') {
+        audioContextRef.current?.close();
+      }
     };
   }, [audioBlob, isOpen]);
 
@@ -108,7 +115,7 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
     }
   };
 
-  const togglePlayback = () => {
+  const togglePlayback = async () => {
     if (!audioRef.current) return;
 
     if (isPlaying) {
@@ -117,7 +124,11 @@ export function VoiceprintPreview({ audioBlob, isOpen, onClose, nftId }: Voicepr
         cancelAnimationFrame(animationFrameRef.current);
       }
     } else {
-      audioRef.current.play();
+      // Resume audio context if it was suspended
+      if (audioContextRef.current?.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      await audioRef.current.play();
       drawVisualization();
     }
     setIsPlaying(!isPlaying);
