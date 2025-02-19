@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { initScene, updateVisualization } from '@/lib/scene';
 import { setupAudioAnalyzer } from '@/lib/audio';
-import ErrorMessage from '@/components/ErrorMessage';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mic, RefreshCcw } from "lucide-react";
+import { Mic, RefreshCcw, Headphones } from "lucide-react";
 
 export default function Visualizer() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -17,8 +16,24 @@ export default function Visualizer() {
   }>();
   const frameRef = useRef<number>();
   const [error, setError] = useState<string>('');
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [needsMicPermission, setNeedsMicPermission] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+
+  const checkWebXRSupport = async () => {
+    if (!navigator.xr) {
+      throw new Error('WebXR not supported in this browser. Please use a WebXR-compatible browser.');
+    }
+    try {
+      // Check if 'immersive-vr' is supported
+      const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
+      if (!isSupported) {
+        throw new Error('VR not supported on this device/browser.');
+      }
+    } catch (err) {
+      throw new Error('VR support check failed. Please ensure your browser supports WebXR.');
+    }
+  };
 
   const initAudio = async () => {
     try {
@@ -41,17 +56,16 @@ export default function Visualizer() {
     try {
       setIsInitializing(true);
       setError('');
+      setIsReady(false);
 
-      // Check WebXR support
-      if (!navigator.xr) {
-        throw new Error('WebXR not supported in this browser. Please use a WebXR-compatible browser.');
-      }
+      // First check WebXR support
+      await checkWebXRSupport();
 
-      // Initialize Three.js scene
-      sceneRef.current = initScene(containerRef.current);
-
-      // Setup audio analyzer
+      // Then initialize audio
       const analyzer = await initAudio();
+
+      // Only initialize scene after we have audio permission
+      sceneRef.current = initScene(containerRef.current);
 
       // Animation loop
       const animate = () => {
@@ -79,6 +93,7 @@ export default function Visualizer() {
         console.log('VR session ended');
       });
 
+      setIsReady(true);
       setIsInitializing(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
@@ -138,17 +153,24 @@ export default function Visualizer() {
     );
   }
 
-  if (isInitializing) {
+  if (!isReady || isInitializing) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <Card className="w-full max-w-md mx-4">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center gap-4">
-              <Mic className="h-12 w-12 text-primary animate-pulse" />
-              <h1 className="text-2xl font-bold">Initializing Visualizer</h1>
+              <Headphones className="h-12 w-12 text-primary animate-pulse" />
+              <h1 className="text-2xl font-bold">Starting Audio Visualizer</h1>
               <p className="text-sm text-muted-foreground">
-                Please allow microphone access when prompted to experience the audio visualization.
+                Click "Allow" when prompted for microphone access to begin the experience.
               </p>
+              <Button 
+                onClick={initializeVisualization}
+                className="w-full"
+                disabled={isInitializing}
+              >
+                {isInitializing ? 'Initializing...' : 'Start Visualization'}
+              </Button>
             </div>
           </CardContent>
         </Card>
