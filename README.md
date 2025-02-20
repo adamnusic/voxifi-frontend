@@ -3,6 +3,8 @@
 
 A WebXR-enabled Voiceprint NFT minting site built on Aptos blockchain with real-time audio visualization. The purpose of the Voiceprint NFT is to create an immutable record of your voice data. The voicedata can be used to create a zero-shot voice clone of your voice and these data-pairs can be used to create a VoxiFi Prediction Market. The Voiceprint NFT Minter is therefore the first port of call for voice verification with VoxiFi.
 
+![image](https://github.com/user-attachments/assets/7ccf9af4-a069-4bed-b630-af1196a77145)
+
 ## 🌟 Features
 
 - **Voice Recording & Minting**: Create unique Voiceprint NFTs
